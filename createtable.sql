@@ -8,30 +8,7 @@ CREATE TABLE movies (
 CREATE TABLE stars (
     id varchar(10) PRIMARY KEY,
     name varchar(100) NOT NULL DEFAULT '',
-    birth_year integer<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
-
-    <modelVersion>4.0.0</modelVersion>
-
-    <groupId>com.example</groupId>
-    <artifactId>my-tomcat-project</artifactId>
-    <version>1.0-SNAPSHOT</version>
-    <packaging>war</packaging>
-
-    <dependencies>
-        <!-- Example: MySQL connector -->
-        <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.33</version>
-            <scope>runtime</scope>
-        </dependency>
-    </dependencies>
-
-</project>
-
+    birth_year integer
 );
 
 CREATE TABLE stars_in_movies (
