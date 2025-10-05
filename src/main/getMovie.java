@@ -5,3 +5,7 @@
  * 
  */
 
+@WebServlet("/movie/*")
+public class MovieServlet extends HttpServlet {
+
+}
