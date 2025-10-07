@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Movie } from '../../../types/movie';
+import type { Movie } from '@/types/movie';
 
 interface UseFetchReturn {
   data: Movie | null;
@@ -17,19 +17,18 @@ export const useFetchMovie = (movieId: string): UseFetchReturn => {
     try {
       setLoading(true);
       setError(null);
+      const BASE_URL = 'http://localhost:8080';
+      const res = await fetch(`${BASE_URL}/movie/${movieId}`);
       
-      // TODO: Replace this with your actual API endpoint
-      // const response = await fetch(`/api/movies/${movieId}`);
-      // if (!response.ok) {
-      //   throw new Error('Failed to fetch movie');
-      // }
-      // const movieData = await response.json();
-      // setData(movieData);
+      if (!res.ok) {
+        //throw new Error(`Failed to fetch movie: ${res.status} ${res.statusText}`);
+      }
       
-      // For now, return null to indicate no data fetched from API
-      setData(null);
+      const movieData = await res.json();
+      setData(movieData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
+      setData(null);
     } finally {
       setLoading(false);
     }
