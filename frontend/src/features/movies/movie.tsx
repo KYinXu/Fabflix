@@ -1,44 +1,62 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import type { Movie } from '../../types/movie';
+import { useFetchMovie } from './hooks/useFetch';
 import InfoDisplay from './components/infoDisplay';
 import BackButton from '../../components/BackButton';
 
 const Movie: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  
-  // Mock data for example movie
-  const mockMovie: Movie = {
-    id: id || '1',
-    title: 'The Shawshank Redemption',
-    year: 1994,
-    director: 'Frank Darabont',
-    stars: [
-      { id: '1', name: 'Tim Robbins', birth_year: 1958 },
-      { id: '2', name: 'Morgan Freeman', birth_year: 1937 }
-    ],
-    genres: [
-      { id: 1, name: 'Drama' }
-    ],
-    rating: {
-      movie_id: id || '1',
-      ratings: 9.3,
-      vote_count: 2500000
-    }
-  };
+  const { data: movie, loading, error, refetch } = useFetchMovie(id || '');
+
+  if (loading) {
+    return (
+      <div className="movie-detail">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <BackButton text="Back to Movie List" />
+            <div className="text-center py-8">Loading movie information...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="movie-detail">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <BackButton text="Back to Movie List" />
+            <div className="text-center py-8">
+              <p className="text-red-600 mb-4">Error: {error}</p>
+              <button 
+                onClick={refetch}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="movie-detail">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <BackButton text="Back to Movie List" />
-          <InfoDisplay movie={mockMovie} />
+          {movie ? (
+            <InfoDisplay movie={movie} />
+          ) : (
+            <div className="text-center py-8">Movie not found</div>
+          )}
         </div>
       </div>
     </div>
   );
 };
-
 
 /**
  * Movie page information:
