@@ -1,5 +1,3 @@
-// Naming convention figured out later
-
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,7 +10,6 @@ import java.sql.*;
 /**
  * Endpoints for querying movie information for a detailed view
  */
-
 @WebServlet("/movie/*")
 public class MovieServlet extends HttpServlet {
     protected void doGet (HttpServletRequest request, HttpServletResponse response) throws IOException, RuntimeException {
@@ -22,7 +19,7 @@ public class MovieServlet extends HttpServlet {
             throw new RuntimeException(e);
         }
 
-        String query = "SELECT * FROM movies WHERE id = '?'";
+        String query = "SELECT * FROM movies WHERE id = ?";
         String pathInfo = request.getPathInfo();
         String movieId;
 
@@ -62,7 +59,6 @@ public class MovieServlet extends HttpServlet {
 
                 } else { // the query result is empty
                     response.sendError(HttpServletResponse.SC_NOT_FOUND, "Movie not found");
-                    return;
                 }
             }
         } catch (Exception e) {

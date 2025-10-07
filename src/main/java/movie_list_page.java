@@ -30,7 +30,7 @@ public class MovieListServlet extends HttpServlet{
                             "WHERE g.name IN (SELECT g.name FROM movies m" +
                                     "JOIN genres_in_movies gm ON m.movie_id = gm.movie_id" +
                                     "JOIN genres g ON g.id = gm.genre_id" +
-                                    "LIMIT 3)"
+                                    "LIMIT 3)" +
                             "AND s.name IN (SELECT s.name FROM movies m" +
                                     "JOIN stars_in_movies sm ON m.movie_id = sm.movie_id" +
                                     "JOIN stars s ON s.id = sm.star_id" +
