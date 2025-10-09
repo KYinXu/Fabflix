@@ -20,7 +20,6 @@ export interface Genre {
 }
 
 export interface Rating {
-  movie_id: string;
   ratings: number;
   vote_count: number;
 }
