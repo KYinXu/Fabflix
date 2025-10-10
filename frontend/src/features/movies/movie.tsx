@@ -41,7 +41,6 @@ const Movie: React.FC = () => {
       </div>
     );
   }
-
   return (
     <div className="movie-detail">
       <div className="container mx-auto px-4 py-8">
@@ -57,9 +56,4 @@ const Movie: React.FC = () => {
     </div>
   );
 };
-
-/**
- * Movie page information:
- * title, year, director, stars, genres, rating
- */
 export default Movie;
