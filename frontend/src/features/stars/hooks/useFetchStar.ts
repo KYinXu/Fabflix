@@ -22,7 +22,7 @@ export const useFetchStar = (starId: string): UseFetchStarReturn => {
       const res = await fetch(`${BASE_URL}/star/${starId}`);
       
       if (!res.ok) {
-        throw new Error(`Failed to fetch star: ${res.status} ${res.statusText}`);
+        //throw new Error(`Failed to fetch star: ${res.status} ${res.statusText}`);
       }
       
       const starData = await res.json();
