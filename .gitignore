@@ -80,6 +80,9 @@ local.properties
 .idea/**/dynamic.xml
 .idea/**/uiDesigner.xml
 
+#Backend environment variables
+src/main/java/Parameters.java
+
 # Gradle:
 .idea/**/gradle.xml
 .idea/**/libraries
