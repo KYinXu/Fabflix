@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { useFetchMovie } from './hooks/useFetch';
+import { useFetchMovie } from './hooks/useFetchMovie';
 import InfoDisplay from './components/infoDisplay';
 import BackButton from '../../components/BackButton';
 
