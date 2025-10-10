@@ -13,59 +13,62 @@ import java.sql.*;
  */
 @WebServlet("/movie/*")
 public class MovieServlet extends HttpServlet {
+
     protected void doGet (HttpServletRequest request, HttpServletResponse response) throws IOException, RuntimeException {
-        // Add CORS headers
+        String GET_MOVIE_BY_ID = """
+            SELECT *
+            FROM movies
+            WHERE id = ?
+        """;
+        String GET_RATINGS_INFORMATION = """
+            SELECT ratings, vote_count
+            FROM ratings
+            WHERE movie_id = ?
+        """;
+        String GET_STARS_INFORMATION = """
+            SELECT s.*
+            FROM stars s
+            INNER JOIN stars_in_movies sm ON s.id = sm.star_id
+            WHERE sm.movie_id = ?
+        """;
+        String GET_GENRES_INFORMATION = """
+            SELECT g.*
+            FROM genres g
+                INNER JOIN genres_in_movies gm ON g.id = gm.genre_id
+            WHERE gm.movie_id = ?
+        """;
         doOptions(request, response);
-//        response.setHeader("Access-Control-Allow-Origin", "*");
-//        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-//        response.setHeader("Access-Control-Allow-Headers", "Content-Type");
-        
+
         try {
             Class.forName("com.mysql.cj.jdbc.Driver"); //Install mySQL driver
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
-
-
         String pathInfo = request.getPathInfo();
-        String movieId;
-
-        // Parse path and initialize movieId
-        if (pathInfo == null || pathInfo.isEmpty()|| pathInfo.equals("/")) {
+        if (isValidPath(pathInfo)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No movie ID provided");
             return;
         }
-        movieId = pathInfo.substring(1); // removes the leading '/'
-
-        // Establish connection and prepare query statement
+        String movieId = pathInfo.substring(1); // removes the leading '/'
         try (Connection conn = DriverManager.getConnection(
                 "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false",
                 Parameters.username,
                 Parameters.password)) {
-            // movie object to store query response information
             JSONObject movie = new JSONObject();
-
-            // Execute first query to get movie information
-            String query1 = "SELECT * FROM movies m WHERE id = ? ";
-            try (PreparedStatement st1 = conn.prepareStatement(query1)) { // create prepared statement
-                st1.setString(1, movieId); // insert movieId into query statement
-
-                try (ResultSet rs = st1.executeQuery()) {
+            try (PreparedStatement statement1 = conn.prepareStatement(GET_MOVIE_BY_ID)) {
+                statement1.setString(1, movieId);
+                try (ResultSet rs = statement1.executeQuery()) {
                     ResultSetMetaData rsmd = rs.getMetaData(); // get col names
-                    if (rs.next()) { // query returned an object
+                    if (rs.next()) {
                         insertResult(rs, rsmd, movie);
                     } else { // the query result is empty
                         response.sendError(HttpServletResponse.SC_NOT_FOUND, "Movie not found");
                     }
                 }
             }
-
-            // Execute second query to get rating information
-            String query2 = "SELECT ratings, vote_count FROM ratings WHERE movie_id = ?";
-            try (PreparedStatement st2 = conn.prepareStatement(query2)) {
-                st2.setString(1, movieId);
-
-                try (ResultSet rs = st2.executeQuery()) {
+            try (PreparedStatement statement2 = conn.prepareStatement(GET_RATINGS_INFORMATION)) {
+                statement2.setString(1, movieId);
+                try (ResultSet rs = statement2.executeQuery()) {
                     ResultSetMetaData rsmd = rs.getMetaData();
                     if (rs.next()) {
                         JSONObject ratings = new JSONObject();
@@ -74,12 +77,9 @@ public class MovieServlet extends HttpServlet {
                     }
                 }
             }
-
-            // Execute third query to get cast information
-            String query3 = "SELECT s.* FROM stars s INNER JOIN stars_in_movies sm ON s.id = sm.star_id WHERE sm.movie_id = ?";
-            try (PreparedStatement st3 = conn.prepareStatement(query3)) {
-                st3.setString(1, movieId);
-                try (ResultSet rs = st3.executeQuery()) {
+            try (PreparedStatement statement3 = conn.prepareStatement(GET_STARS_INFORMATION)) {
+                statement3.setString(1, movieId);
+                try (ResultSet rs = statement3.executeQuery()) {
                     JSONArray stars = new JSONArray();
                     ResultSetMetaData rsmd = rs.getMetaData();
                     while (rs.next()) {
@@ -90,12 +90,9 @@ public class MovieServlet extends HttpServlet {
                     movie.put("stars", stars);
                 }
             }
-
-            // Execute fourth query to get genre information
-            String query4 = "SELECT g.* FROM genres g INNER JOIN genres_in_movies gm ON g.id = gm.genre_id WHERE gm.movie_id = ?";
-            try (PreparedStatement st4 = conn.prepareStatement(query4)) {
-                st4.setString(1, movieId);
-                try (ResultSet rs = st4.executeQuery()) {
+            try (PreparedStatement statement4 = conn.prepareStatement(GET_GENRES_INFORMATION)) {
+                statement4.setString(1, movieId);
+                try (ResultSet rs = statement4.executeQuery()) {
                     JSONArray genres = new JSONArray();
                     ResultSetMetaData rsmd = rs.getMetaData();
                     while (rs.next()) {
@@ -106,19 +103,25 @@ public class MovieServlet extends HttpServlet {
                     movie.put("genres", genres);
                 }
             }
-
             // Write movie object to response
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write(movie.toString());
+        } catch (SQLException e) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
+        } catch (IOException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid movie ID");
         } catch (Exception e) {
-            //TODO: Handle specific errors and provide detailed logging
-            throw new IOException(e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unknown error");
         }
     }
 
+    private static boolean isValidPath(String pathInfo) {
+        return pathInfo == null || pathInfo.isEmpty() || pathInfo.equals("/");
+    }
+
     @Override
-    protected void doOptions(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    protected void doOptions(HttpServletRequest request, HttpServletResponse response) {
         // Handle preflight requests
         response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
