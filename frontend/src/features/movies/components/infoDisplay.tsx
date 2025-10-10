@@ -1,5 +1,6 @@
 import React from 'react';
-import type { Movie } from '../../../types/movie';
+import type { Movie } from '../types/movie';
+import {Link} from "react-router-dom";
 
 interface InfoDisplayProps {
   movie: Movie;
@@ -40,6 +41,7 @@ const InfoDisplay: React.FC<InfoDisplayProps> = ({ movie }) => {
             <h3 className="text-xl font-semibold mb-3">Cast</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {movie.stars.map((star) => (
+                <Link to={`/star/${star.id}`} key={star.id}>
                 <div key={star.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                   <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
                     {star.name.charAt(0)}
@@ -53,6 +55,7 @@ const InfoDisplay: React.FC<InfoDisplayProps> = ({ movie }) => {
                     )}
                   </div>
                 </div>
+                </Link>
               ))}
             </div>
           </div>
