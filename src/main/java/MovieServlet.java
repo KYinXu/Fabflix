@@ -16,36 +16,34 @@ public class MovieServlet extends HttpServlet {
 
     protected void doGet (HttpServletRequest request, HttpServletResponse response) throws IOException, RuntimeException {
         String GET_MOVIE_BY_ID = """
-            SELECT *
-            FROM movies
-            WHERE id = ?
-        """;
+                SELECT *
+                FROM movies
+                WHERE id = ?
+                """;
         String GET_RATINGS_INFORMATION = """
-            SELECT ratings, vote_count
-            FROM ratings
-            WHERE movie_id = ?
-        """;
+                SELECT ratings, vote_count
+                FROM ratings
+                WHERE movie_id = ?
+                """;
         String GET_STARS_INFORMATION = """
-            SELECT s.*
-            FROM stars s
-            INNER JOIN stars_in_movies sm ON s.id = sm.star_id
-            WHERE sm.movie_id = ?
-        """;
+                SELECT s.*
+                FROM stars s
+                INNER JOIN stars_in_movies sm ON s.id = sm.star_id
+                WHERE sm.movie_id = ?
+                """;
         String GET_GENRES_INFORMATION = """
-            SELECT g.*
-            FROM genres g
-                INNER JOIN genres_in_movies gm ON g.id = gm.genre_id
-            WHERE gm.movie_id = ?
-        """;
-        doOptions(request, response);
-
+                SELECT g.*
+                FROM genres g
+                    INNER JOIN genres_in_movies gm ON g.id = gm.genre_id
+                WHERE gm.movie_id = ?
+                """;
         try {
             Class.forName("com.mysql.cj.jdbc.Driver"); //Install mySQL driver
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
         String pathInfo = request.getPathInfo();
-        if (isValidPath(pathInfo)) {
+        if (!isValidPath(pathInfo)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No movie ID provided");
             return;
         }
@@ -61,7 +59,7 @@ public class MovieServlet extends HttpServlet {
                     ResultSetMetaData rsmd = rs.getMetaData(); // get col names
                     if (rs.next()) {
                         insertResult(rs, rsmd, movie);
-                    } else { // the query result is empty
+                    } else {
                         response.sendError(HttpServletResponse.SC_NOT_FOUND, "Movie not found");
                     }
                 }
@@ -108,27 +106,17 @@ public class MovieServlet extends HttpServlet {
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write(movie.toString());
         } catch (SQLException e) {
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error: " + e.getMessage());
         } catch (IOException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid movie ID");
         } catch (Exception e) {
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unknown error");
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unknown error: " + e.getMessage());
         }
     }
 
     private static boolean isValidPath(String pathInfo) {
-        return pathInfo == null || pathInfo.isEmpty() || pathInfo.equals("/");
+        return !(pathInfo == null || pathInfo.isEmpty() || pathInfo.equals("/"));
     }
-
-    @Override
-    protected void doOptions(HttpServletRequest request, HttpServletResponse response) {
-        // Handle preflight requests
-        response.setHeader("Access-Control-Allow-Origin", "*");
-        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        response.setHeader("Access-Control-Allow-Headers", "Content-Type");
-        response.setStatus(HttpServletResponse.SC_OK);
-    }
-
 
     protected void insertResult(ResultSet rs, ResultSetMetaData rsmd, JSONObject obj) throws SQLException {
         for (int i = 1; i <= rsmd.getColumnCount(); i++) {
