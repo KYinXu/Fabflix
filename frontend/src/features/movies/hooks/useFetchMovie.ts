@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Movie } from '@/types/movie';
+import type { Movie } from '@/features/movies/types/movie';
 
 interface UseFetchReturn {
   data: Movie | null;
