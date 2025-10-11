@@ -1,6 +1,6 @@
 import React from 'react';
-import type { Movie } from '../types/movie';
-import {Link} from "react-router-dom";
+import type { Movie } from '@/types/types';
+import { Link } from "react-router-dom";
 
 interface InfoDisplayProps {
   movie: Movie;

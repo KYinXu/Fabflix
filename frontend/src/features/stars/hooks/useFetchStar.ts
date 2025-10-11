@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star } from '../types/star';
+import { Star } from '@/types/types';
 
 interface UseFetchStarReturn {
   data: Star | null;
