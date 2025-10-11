@@ -1,6 +1,7 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useFetchStar } from './hooks/useFetchStar';
+import BackButton from '../../components/BackButton';
 
 const Star: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -32,48 +33,53 @@ const Star: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <BackButton text="Back to Movie List" />
+        
         {/* Star Header */}
-        <div className="bg-white shadow-lg rounded-lg p-6 mb-6">
-          <h1 className="text-4xl font-bold mb-4">{star.name}</h1>
+        <div className="border-b-4 border-purple-600 pb-6">
+          <h1 className="text-5xl font-bold text-gray-900 mb-2">{star.name}</h1>
           {star.birth_year && (
-            <p className="text-gray-600 text-lg">
-              Born: {star.birth_year}
+            <p className="text-lg text-gray-600">
+              Born: <span className="font-semibold text-gray-900">{star.birth_year}</span>
             </p>
           )}
         </div>
 
         {/* Movies Section */}
-        <div className="bg-white shadow-lg rounded-lg p-6">
-          <h2 className="text-2xl font-bold mb-4">Movies</h2>
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-gray-900">Movies</h2>
           
           {star.movies && star.movies.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {star.movies.map((movie) => (
                 <Link
                   key={movie.id}
                   to={`/movie/${movie.id}`}
-                  className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-blue-500 transition-colors"
+                  className="block p-5 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all"
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-xl font-semibold text-blue-600 hover:text-blue-800">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-1">
                         {movie.title}
                       </h3>
-                      <p className="text-gray-600 mt-1">
-                        Directed by {movie.director}
+                      <p className="text-gray-600">
+                        Directed by <span className="font-medium">{movie.director}</span>
                       </p>
                     </div>
-                    <span className="text-gray-500 font-medium">
+                    <span className="text-lg text-gray-700 font-semibold ml-4">
                       {movie.year}
                     </span>
                   </div>
                   
-                  {movie.rating && (
-                    <div className="mt-2">
-                      <span className="text-yellow-500">
-                        {`★ {movie.rating.ratings.toFixed(1)}`}
-                      </span>
+                  {movie.ratings && (
+                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                      <div className="flex items-center gap-1">
+                        <span className="text-yellow-500 text-lg">★</span>
+                        <span className="text-gray-700 font-medium">
+                          {movie.ratings.ratings.toFixed(1)} / 10
+                        </span>
+                      </div>
                     </div>
                   )}
                 </Link>
@@ -82,16 +88,6 @@ const Star: React.FC = () => {
           ) : (
             <p className="text-gray-500">No movies found for this star.</p>
           )}
-        </div>
-
-        {/* Back Button */}
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-block px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
-          >
-            ← Back to Home
-          </Link>
         </div>
       </div>
     </div>

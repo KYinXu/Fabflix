@@ -5,7 +5,7 @@ export interface Movie {
     director: string;
     stars?: Star[];
     genres?: Genre[];
-    rating?: Rating;
+    ratings?: Rating;
 }
 
 export interface Star {
