@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import utils.ResponseUtils;
 
 import java.io.IOException;
 import java.sql.*;
@@ -25,8 +26,10 @@ public class StarServlet extends HttpServlet {
                 INNER JOIN stars_in_movies sm ON m.id = sm.movie_id
                 WHERE sm.star_id = ?
                 """;
+
         try {
             Class.forName("com.mysql.cj.jdbc.Driver"); //Install mySQL driver
+            //ResponseUtils.setCommonHeaders(response);
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
@@ -37,7 +40,7 @@ public class StarServlet extends HttpServlet {
         }
         String starId = pathInfo.substring(1);
         try (Connection conn = DriverManager.getConnection(
-                "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false",
+                "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true",
                 Parameters.username,
                 Parameters.password)) {
             JSONObject star = new JSONObject();
