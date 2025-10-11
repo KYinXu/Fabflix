@@ -31,7 +31,7 @@ public class MovieListServlet extends HttpServlet{
         // MySQL Connection Information
         String loginUser = Parameters.username;
         String loginPassword = Parameters.password;
-        String loginUrl = "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false";
+        String loginUrl = "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true";
 
         // Response Mime Type
         response.setContentType("application/json");
