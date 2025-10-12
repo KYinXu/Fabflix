@@ -82,6 +82,7 @@ local.properties
 
 #Backend environment variables
 src/main/java/Parameters.java
+data/
 
 # Gradle:
 .idea/**/gradle.xml
