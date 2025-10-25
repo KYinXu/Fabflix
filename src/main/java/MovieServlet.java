@@ -43,7 +43,7 @@ public class MovieServlet extends HttpServlet {
             Class.forName("com.mysql.cj.jdbc.Driver"); //Install mySQL driver
             //ResponseUtils.setCommonHeaders(response);
         } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database connection error");
         }
         String pathInfo = request.getPathInfo();
         if (!isValidPath(pathInfo)) {
