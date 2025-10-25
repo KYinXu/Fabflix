@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useFetchMovieList } from "../hooks/useFetchMovieList";
 import { useFetchGenres } from "../hooks/useFetchGenres";
 import MovieListGrid from '../components/MovieListGrid';
@@ -8,17 +9,42 @@ import BrowseSection from '../components/BrowseSection';
 const MovieList: React.FC = () => {
     const {data, loading, error, currentPage, hasNextPage, pageSize, searchMovies, browseMovies, browseByGenre, goToNextPage, goToPreviousPage, setPageSize} = useFetchMovieList(); // create state by calling hook
     const {data: genres} = useFetchGenres(); // fetch genres
+    const [searchParams, setSearchParams] = useSearchParams();
     const [browseType, setBrowseType] = useState<'title' | 'genre'>('title');
+    const [selectedLetter, setSelectedLetter] = useState<string>('All');
+    const [selectedGenreId, setSelectedGenreId] = useState<number | null>(null);
+    const [hasInitialized, setHasInitialized] = useState(false);
+    
+    // Handle URL parameters on mount
+    useEffect(() => {
+        const genreIdParam = searchParams.get('genreId');
+        if (genreIdParam && !hasInitialized) {
+            const genreId = parseInt(genreIdParam);
+            if (!isNaN(genreId)) {
+                setBrowseType('genre');
+                setSelectedGenreId(genreId);
+                setSelectedLetter('');
+                browseByGenre(genreId);
+                setHasInitialized(true);
+            }
+        }
+    }, [searchParams, hasInitialized, browseByGenre]);
     
     const handleSearch = (movieQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => {
         // Search movies by title, star, director, and year (empty strings show all movies)
         searchMovies(movieQuery, starQuery, directorQuery, yearQuery);
+        setSelectedLetter('All');
+        setSelectedGenreId(null);
     };
 
     const handleBrowseTypeChange = (type: 'title' | 'genre') => {
         setBrowseType(type);
         if (type === 'title') {
             browseMovies('All');
+            setSelectedLetter('All');
+            setSelectedGenreId(null);
+        } else {
+            setSelectedLetter('');
         }
     };
 
@@ -26,6 +52,8 @@ const MovieList: React.FC = () => {
         // Only trigger browse if we're on the title tab
         if (browseType === 'title') {
             browseMovies(letter);
+            setSelectedLetter(letter);
+            setSelectedGenreId(null);
         }
     };
 
@@ -33,6 +61,8 @@ const MovieList: React.FC = () => {
         // Only trigger browse if we're on the genre tab
         if (browseType === 'genre') {
             browseByGenre(genreId);
+            setSelectedGenreId(genreId);
+            setSelectedLetter('');
         }
     };
 
@@ -82,6 +112,20 @@ const MovieList: React.FC = () => {
                 onGenreChange={handleGenreChange}
                 genres={genres}
             />
+            
+            {/* Display current filter */}
+            {(selectedLetter || selectedGenreId !== null) && (
+                <div className="container mx-auto px-4 mb-6">
+                    <h2 className="text-2xl font-semibold text-gray-700 text-center">
+                        {browseType === 'title' && selectedLetter && (
+                            <>Browsing movies starting with "<span className="text-blue-600 font-bold">{selectedLetter === 'All' ? 'All Letters' : selectedLetter}</span>"</>
+                        )}
+                        {browseType === 'genre' && selectedGenreId !== null && genres && (
+                            <>Browsing <span className="text-blue-600 font-bold">{genres.find(g => g.id === selectedGenreId)?.name || 'Genre'}</span> movies</>
+                        )}
+                    </h2>
+                </div>
+            )}
             
             {data && <MovieListGrid movies={data} />}
             
