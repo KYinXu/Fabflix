@@ -6,6 +6,7 @@ interface useFetchReturn {
     loading: boolean;
     error: string | null;
     searchMovies: (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => Promise<void>;
+    browseMovies: (letter: string) => Promise<void>;
 }
 
 export const useFetchMovieList = () : useFetchReturn => {
@@ -15,7 +16,7 @@ export const useFetchMovieList = () : useFetchReturn => {
     const [error, setError] = useState<string | null>(null);
 
     // Data Fetching
-    const fetchMovie = async (titleQuery: string = '', starQuery: string = '', directorQuery: string = '', yearQuery: string = '') => {
+    const fetchMovie = async (titleQuery: string = '', starQuery: string = '', directorQuery: string = '', yearQuery: string = '', letter: string = '') => {
         setLoading(true);
         setError(null);
         try{
@@ -33,6 +34,9 @@ export const useFetchMovieList = () : useFetchReturn => {
             }
             if (yearQuery.trim()) {
                 params.append('year', yearQuery.trim());
+            }
+            if (letter.trim()) {
+                params.append('letter', letter.trim());
             }
             const url = params.toString() ? `${BASE_URL}?${params.toString()}` : BASE_URL;
             
@@ -55,7 +59,12 @@ export const useFetchMovieList = () : useFetchReturn => {
 
     // Search function for parent component
     const searchMovies = useCallback(async (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => {
-        await fetchMovie(titleQuery, starQuery, directorQuery, yearQuery);
+        await fetchMovie(titleQuery, starQuery, directorQuery, yearQuery, '');
+    }, []);
+
+    // Browse function for browsing by letter
+    const browseMovies = useCallback(async (letter: string) => {
+        await fetchMovie('', '', '', '', letter);
     }, []);
 
     // Run & Return States
@@ -63,5 +72,5 @@ export const useFetchMovieList = () : useFetchReturn => {
         fetchMovie();
     }, []); // no argument, as this page is static
 
-    return { data, loading, error, searchMovies };
+    return { data, loading, error, searchMovies, browseMovies };
 }

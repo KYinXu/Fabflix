@@ -1,14 +1,32 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useFetchMovieList } from "../hooks/useFetchMovieList";
+import { useFetchGenres } from "../hooks/useFetchGenres";
 import MovieListGrid from '../components/MovieListGrid';
 import SearchSection from '../components/SearchSection';
+import BrowseSection from '../components/BrowseSection';
 
 const MovieList: React.FC = () => {
-    const {data, loading, error, searchMovies} = useFetchMovieList(); // create state by calling hook
+    const {data, loading, error, searchMovies, browseMovies} = useFetchMovieList(); // create state by calling hook
+    const {data: genres} = useFetchGenres(); // fetch genres
+    const [browseType, setBrowseType] = useState<'title' | 'genre'>('title');
     
     const handleSearch = (movieQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => {
         // Search movies by title, star, director, and year (empty strings show all movies)
         searchMovies(movieQuery, starQuery, directorQuery, yearQuery);
+    };
+
+    const handleBrowseTypeChange = (type: 'title' | 'genre') => {
+        setBrowseType(type);
+        if (type === 'title') {
+            browseMovies('All');
+        }
+    };
+
+    const handleLetterChange = (letter: string) => {
+        // Only trigger browse if we're on the title tab
+        if (browseType === 'title') {
+            browseMovies(letter);
+        }
     };
 
     if (error){
@@ -27,6 +45,12 @@ const MovieList: React.FC = () => {
                 
                 <SearchSection onSearch={handleSearch} />
                 
+                <BrowseSection 
+                    onBrowseTypeChange={handleBrowseTypeChange}
+                    onLetterChange={handleLetterChange}
+                    genres={genres}
+                />
+                
                 <div className="container mx-auto px-4">
                     <p className="text-gray-600 text-center">
                         Filler text
@@ -43,6 +67,12 @@ const MovieList: React.FC = () => {
             </h1>
             
             <SearchSection onSearch={handleSearch} />
+            
+            <BrowseSection 
+                onBrowseTypeChange={handleBrowseTypeChange}
+                onLetterChange={handleLetterChange}
+                genres={genres}
+            />
             
             {data && <MovieListGrid movies={data} />}
         </div>

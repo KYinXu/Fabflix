@@ -14,9 +14,9 @@ public class MovieListServlet extends HttpServlet{
     public static final String GET_MOVIE_LIST = """
             SELECT DISTINCT m.id, m.title, m.year, m.director, r.ratings
             FROM movies m
-            LEFT JOIN ratings r ON m.id = r.movie_id
-            LEFT JOIN stars_in_movies sm ON m.id = sm.movie_id
-            LEFT JOIN stars s ON sm.star_id = s.id
+            INNER JOIN ratings r ON m.id = r.movie_id
+            INNER JOIN stars_in_movies sm ON m.id = sm.movie_id
+            INNER JOIN stars s ON sm.star_id = s.id
             WHERE m.title LIKE ?
             AND (s.name LIKE ? OR ? = '%')
             AND m.director LIKE ?
@@ -51,7 +51,14 @@ public class MovieListServlet extends HttpServlet{
             WHERE gm.movie_id = ?
             LIMIT 3
             """;
+    
+    public static final String GET_ALL_GENRES_QUERY = """
+            SELECT DISTINCT id, name
+            FROM genres
+            ORDER BY name ASC
+            """;
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+
         // MySQL Connection Information
         String loginUser = Parameters.username;
         String loginPassword = Parameters.password;
@@ -61,18 +68,41 @@ public class MovieListServlet extends HttpServlet{
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         PrintWriter frontendOutput = response.getWriter(); // Print Writer
+
+
         try {
             Class.forName("com.mysql.cj.jdbc.Driver"); // Register and Load driver
         } catch (Exception e) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database connection error");
         }
+
+        // Check if client wants genre list (early return pattern)
+        String action = request.getParameter("action");
+        if ("listGenres".equals(action)) {
+            try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
+                handleGenreList(frontendOutput, connection);
+            } catch (SQLException e) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error getting genre list");
+            }
+            // frontendOutput will be closed below with the rest of the method
+            frontendOutput.close();
+            return;
+        }
         // Connect to database via URL
         try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
+            // Return movie list (existing behavior)
             JSONArray movies = new JSONArray();
             String titlePattern = createSearchPattern(request.getParameter("title"));
             String starPattern = createSearchPattern(request.getParameter("star"));
             String directorPattern = createSearchPattern(request.getParameter("director"));
             int year = createYearFilter(request.getParameter("year"));
+            
+            // Handle letter-based filtering for browse by title
+            String letterParam = request.getParameter("letter");
+            if (letterParam != null && !letterParam.equals("All") && letterParam.matches("^[A-Z]$")) {
+                titlePattern = letterParam + "%";
+            }
+            
             String sortCriteria = "r.ratings";
             String sortOrder = "DESC";
             String completeQuery = buildMovieListQuery(sortCriteria, sortOrder);
@@ -98,6 +128,21 @@ public class MovieListServlet extends HttpServlet{
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal server error");
         }
         frontendOutput.close();
+    }
+    
+    private void handleGenreList(PrintWriter frontendOutput, Connection connection) throws SQLException {
+        JSONArray genres = new JSONArray();
+        try (PreparedStatement genreQuery = connection.prepareStatement(GET_ALL_GENRES_QUERY)) {
+            try (ResultSet queryResult = genreQuery.executeQuery()) {
+                while (queryResult.next()) {
+                    JSONObject genre = new JSONObject();
+                    insertResult(queryResult, genre);
+                    genres.put(genre);
+                }
+            }
+        }
+        frontendOutput.write(genres.toString());
+        frontendOutput.flush();
     }
 
     private void addCORSHeader(HttpServletResponse response){
