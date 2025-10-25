@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import MovieList from './features/movie-list/pages/movie_list';
 import Movie from './features/movies/movie';
 import Star from './features/stars/star';
-import Login from "@/features/login/pages/login";
+import Login from "./features/login/pages/login";
 
 function App() {
   return (
