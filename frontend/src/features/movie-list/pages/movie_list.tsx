@@ -6,14 +6,9 @@ import SearchSection from '../components/SearchSection';
 const MovieList: React.FC = () => {
     const {data, loading, error, searchMovies} = useFetchMovieList(); // create state by calling hook
     
-    const handleSearch = (movieQuery: string, starQuery: string) => {
-        // Search movies by title (empty string shows all movies)
-        searchMovies(movieQuery);
-        
-        if (starQuery.trim()) {
-            // TODO: Navigate to search results or filter stars
-            console.log('Searching for star:', starQuery);
-        }
+    const handleSearch = (movieQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => {
+        // Search movies by title, star, director, and year (empty strings show all movies)
+        searchMovies(movieQuery, starQuery, directorQuery, yearQuery);
     };
 
     if (error){

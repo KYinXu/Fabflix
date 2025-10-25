@@ -12,13 +12,23 @@ import jakarta.servlet.http.HttpServletResponse;
 public class MovieListServlet extends HttpServlet{
 
     public static final String GET_MOVIE_LIST = """
-            SELECT m.id, m.title, m.year, m.director
+            SELECT DISTINCT m.id, m.title, m.year, m.director, r.ratings
             FROM movies m
             LEFT JOIN ratings r ON m.id = r.movie_id
+            LEFT JOIN stars_in_movies sm ON m.id = sm.movie_id
+            LEFT JOIN stars s ON sm.star_id = s.id
             WHERE m.title LIKE ?
+            AND (s.name LIKE ? OR ? = '%')
+            AND m.director LIKE ?
+            AND (m.year = ? OR ? = -1)
             """;
     public static final int TITLE_SEARCH_IDX = 1;
-    public static final int DISPLAY_LIMIT_IDX = 2;
+    public static final int STAR_SEARCH_IDX = 2;
+    public static final int STAR_SEARCH_CHECK_IDX = 3;
+    public static final int DIRECTOR_SEARCH_IDX = 4;
+    public static final int YEAR_SEARCH_IDX = 5;
+    public static final int YEAR_SEARCH_CHECK_IDX = 6;
+    public static final int DISPLAY_LIMIT_IDX = 7;
     
     public static final String GET_RATINGS_QUERY = """
             SELECT ratings, vote_count
@@ -59,12 +69,16 @@ public class MovieListServlet extends HttpServlet{
         // Connect to database via URL
         try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
             JSONArray movies = new JSONArray();
-            String titlePattern = createTitlePattern(request.getParameter("title"));
+            String titlePattern = createSearchPattern(request.getParameter("title"));
+            String starPattern = createSearchPattern(request.getParameter("star"));
+            String directorPattern = createSearchPattern(request.getParameter("director"));
+            int year = createYearFilter(request.getParameter("year"));
             String sortCriteria = "r.ratings";
             String sortOrder = "DESC";
             String completeQuery = buildMovieListQuery(sortCriteria, sortOrder);
+            //noinspection SqlSourceToSinkFlow
             try (PreparedStatement movieQuery = connection.prepareStatement(completeQuery)) {
-                setQueryParameters(movieQuery, titlePattern);
+                setQueryParameters(movieQuery, titlePattern, starPattern, directorPattern, year);
                 try(ResultSet queryResult = movieQuery.executeQuery()) {
                     //ResultSetMetaData queriedMetaData = queryResult.getMetaData();
                     while (queryResult.next()) {
@@ -113,21 +127,41 @@ public class MovieListServlet extends HttpServlet{
      * Sets query parameters for movie list query
      * @param movieQuery - prepared statement for movie list query
      * @param titlePattern - pattern used by SQL query to find movies with similar titles
+     * @param starPattern - pattern used by SQL query to find movies with stars of similar names
+     * @param directorPattern - pattern used by SQL query to find movies by director name
+     * @param year - year to filter movies by (-1 for no filter)
      */
-    protected void setQueryParameters(PreparedStatement movieQuery, String titlePattern) throws SQLException {
+    protected void setQueryParameters(PreparedStatement movieQuery, String titlePattern, String starPattern, String directorPattern, int year) throws SQLException {
         movieQuery.setString(TITLE_SEARCH_IDX, titlePattern);
+        movieQuery.setString(STAR_SEARCH_IDX, starPattern);
+        movieQuery.setString(STAR_SEARCH_CHECK_IDX, starPattern);
+        movieQuery.setString(DIRECTOR_SEARCH_IDX, directorPattern);
+        movieQuery.setInt(YEAR_SEARCH_IDX, year);
+        movieQuery.setInt(YEAR_SEARCH_CHECK_IDX, year);
         movieQuery.setInt(DISPLAY_LIMIT_IDX, 20);
     }
     
     /**
-     * Converts raw text input from movie search bar into query-able SQL sequence
-     * @param titleSearch - movie search bar input string
-     * @return - Pattern used by SQL query to find movies with similar titles
+     * Converts raw text input from search bar into query-able SQL sequence
+     * @param searchInput - search bar input string
+     * @return - Pattern used by SQL query with LIKE operator (e.g., "%search%")
      */
-    protected String createTitlePattern(String titleSearch) {
-        return (titleSearch != null && !titleSearch.trim().isEmpty())
-                ? "%" + titleSearch.trim() + "%"
+    protected String createSearchPattern(String searchInput) {
+        return (searchInput != null && !searchInput.trim().isEmpty())
+                ? "%" + searchInput.trim() + "%"
                 : "%";
+    }
+    
+    /**
+     * Converts year from dropdown into integer for exact matching
+     * @param yearInput - year from dropdown (always valid or empty)
+     * @return - Year as integer, or -1 if empty (no filter)
+     */
+    protected int createYearFilter(String yearInput) {
+        if (yearInput == null || yearInput.trim().isEmpty()) {
+            return -1;
+        }
+        return Integer.parseInt(yearInput.trim());
     }
     /**
      * Helper function to populate a movie object with all relevant fields for display on main page
