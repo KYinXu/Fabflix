@@ -22,6 +22,14 @@ public class MovieListServlet extends HttpServlet{
             AND m.director LIKE ?
             AND (m.year = ? OR ? = -1)
             """;
+    
+    public static final String GET_MOVIE_LIST_BY_GENRE = """
+            SELECT DISTINCT m.id, m.title, m.year, m.director, r.ratings
+            FROM movies m
+            INNER JOIN ratings r ON m.id = r.movie_id
+            INNER JOIN genres_in_movies gm ON m.id = gm.movie_id
+            WHERE gm.genre_id = ?
+            """;
     public static final int TITLE_SEARCH_IDX = 1;
     public static final int STAR_SEARCH_IDX = 2;
     public static final int STAR_SEARCH_CHECK_IDX = 3;
@@ -29,6 +37,9 @@ public class MovieListServlet extends HttpServlet{
     public static final int YEAR_SEARCH_IDX = 5;
     public static final int YEAR_SEARCH_CHECK_IDX = 6;
     public static final int DISPLAY_LIMIT_IDX = 7;
+    public static final int DISPLAY_OFFSET_IDX = 8;
+    private static final int DEFAULT_MOVIES_PER_PAGE = 20;
+    private static final int[] ALLOWED_PAGE_SIZES = {10, 25, 50, 100};
     
     public static final String GET_RATINGS_QUERY = """
             SELECT ratings, vote_count
@@ -92,29 +103,62 @@ public class MovieListServlet extends HttpServlet{
         try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
             // Return movie list (existing behavior)
             JSONArray movies = new JSONArray();
-            String titlePattern = createSearchPattern(request.getParameter("title"));
-            String starPattern = createSearchPattern(request.getParameter("star"));
-            String directorPattern = createSearchPattern(request.getParameter("director"));
-            int year = createYearFilter(request.getParameter("year"));
             
-            // Handle letter-based filtering for browse by title
-            String letterParam = request.getParameter("letter");
-            if (letterParam != null && !letterParam.equals("All") && letterParam.matches("^[A-Z]$")) {
-                titlePattern = letterParam + "%";
-            }
-            
-            String sortCriteria = "r.ratings";
-            String sortOrder = "DESC";
-            String completeQuery = buildMovieListQuery(sortCriteria, sortOrder);
-            //noinspection SqlSourceToSinkFlow
-            try (PreparedStatement movieQuery = connection.prepareStatement(completeQuery)) {
-                setQueryParameters(movieQuery, titlePattern, starPattern, directorPattern, year);
-                try(ResultSet queryResult = movieQuery.executeQuery()) {
-                    //ResultSetMetaData queriedMetaData = queryResult.getMetaData();
-                    while (queryResult.next()) {
-                        JSONObject movie = new JSONObject();
-                        populateMovie(movie, connection, queryResult);
-                        movies.put(movie);
+            // Check if browsing by genre
+            String genreIdParam = request.getParameter("genreId");
+            if (genreIdParam != null && !genreIdParam.trim().isEmpty()) {
+                // Handle genre-based filtering
+                try {
+                    int genreId = Integer.parseInt(genreIdParam);
+                    String pageParam = request.getParameter("page");
+                    int page = (pageParam != null && !pageParam.isEmpty()) ? Integer.parseInt(pageParam) : 0;
+                    int pageSize = parsePageSize(request.getParameter("pageSize"));
+                    int offset = page * pageSize;
+                    String completeQuery = GET_MOVIE_LIST_BY_GENRE + "ORDER BY r.ratings DESC LIMIT " + pageSize + " OFFSET " + offset;
+                    try (PreparedStatement movieQuery = connection.prepareStatement(completeQuery)) {
+                        movieQuery.setInt(1, genreId);
+                        try(ResultSet queryResult = movieQuery.executeQuery()) {
+                            while (queryResult.next()) {
+                                JSONObject movie = new JSONObject();
+                                populateMovie(movie, connection, queryResult);
+                                movies.put(movie);
+                            }
+                        }
+                    }
+                } catch (NumberFormatException e) {
+                    // Invalid genre ID, return empty result
+                }
+            } else {
+                // Existing movie list query with filters
+                String titlePattern = createSearchPattern(request.getParameter("title"));
+                String starPattern = createSearchPattern(request.getParameter("star"));
+                String directorPattern = createSearchPattern(request.getParameter("director"));
+                int year = createYearFilter(request.getParameter("year"));
+                
+                // Handle letter-based filtering for browse by title
+                String letterParam = request.getParameter("letter");
+                if (letterParam != null && !letterParam.equals("All") && letterParam.matches("^[A-Z0-9]$")) {
+                    titlePattern = letterParam + "%";
+                }
+                
+                // Parse page parameter
+                String pageParam = request.getParameter("page");
+                int page = (pageParam != null && !pageParam.isEmpty()) ? Integer.parseInt(pageParam) : 0;
+                int pageSize = parsePageSize(request.getParameter("pageSize"));
+                
+                String sortCriteria = "r.ratings";
+                String sortOrder = "DESC";
+                String completeQuery = buildMovieListQuery(sortCriteria, sortOrder);
+                //noinspection SqlSourceToSinkFlow
+                try (PreparedStatement movieQuery = connection.prepareStatement(completeQuery)) {
+                    setQueryParameters(movieQuery, titlePattern, starPattern, directorPattern, year, page, pageSize);
+                    try(ResultSet queryResult = movieQuery.executeQuery()) {
+                        //ResultSetMetaData queriedMetaData = queryResult.getMetaData();
+                        while (queryResult.next()) {
+                            JSONObject movie = new JSONObject();
+                            populateMovie(movie, connection, queryResult);
+                            movies.put(movie);
+                        }
                     }
                 }
             }
@@ -166,7 +210,7 @@ public class MovieListServlet extends HttpServlet{
             case "r.ratings", "m.title", "m.year", "m.director" -> sortCriteria;
             default -> "r.ratings";
         };
-        return GET_MOVIE_LIST + "ORDER BY " + validatedCriteria + " " + validatedOrder + " " + "LIMIT ?";
+        return GET_MOVIE_LIST + "ORDER BY " + validatedCriteria + " " + validatedOrder + " " + "LIMIT ? OFFSET ?";
     }
     /**
      * Sets query parameters for movie list query
@@ -175,15 +219,40 @@ public class MovieListServlet extends HttpServlet{
      * @param starPattern - pattern used by SQL query to find movies with stars of similar names
      * @param directorPattern - pattern used by SQL query to find movies by director name
      * @param year - year to filter movies by (-1 for no filter)
+     * @param page - page number (0-indexed)
      */
-    protected void setQueryParameters(PreparedStatement movieQuery, String titlePattern, String starPattern, String directorPattern, int year) throws SQLException {
+    protected void setQueryParameters(PreparedStatement movieQuery, String titlePattern, String starPattern, String directorPattern, int year, int page, int pageSize) throws SQLException {
         movieQuery.setString(TITLE_SEARCH_IDX, titlePattern);
         movieQuery.setString(STAR_SEARCH_IDX, starPattern);
         movieQuery.setString(STAR_SEARCH_CHECK_IDX, starPattern);
         movieQuery.setString(DIRECTOR_SEARCH_IDX, directorPattern);
         movieQuery.setInt(YEAR_SEARCH_IDX, year);
         movieQuery.setInt(YEAR_SEARCH_CHECK_IDX, year);
-        movieQuery.setInt(DISPLAY_LIMIT_IDX, 20);
+        movieQuery.setInt(DISPLAY_LIMIT_IDX, pageSize);
+        movieQuery.setInt(DISPLAY_OFFSET_IDX, page * pageSize);
+    }
+    
+    /**
+     * Parses and validates the page size parameter
+     * @param pageSizeParam - page size parameter from request
+     * @return valid page size or default if invalid
+     */
+    protected int parsePageSize(String pageSizeParam) {
+        if (pageSizeParam == null || pageSizeParam.trim().isEmpty()) {
+            return DEFAULT_MOVIES_PER_PAGE;
+        }
+        try {
+            int pageSize = Integer.parseInt(pageSizeParam);
+            // Check if page size is in allowed list
+            for (int allowed : ALLOWED_PAGE_SIZES) {
+                if (pageSize == allowed) {
+                    return pageSize;
+                }
+            }
+        } catch (NumberFormatException e) {
+            // Invalid format, return default
+        }
+        return DEFAULT_MOVIES_PER_PAGE;
     }
     
     /**

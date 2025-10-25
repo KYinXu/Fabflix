@@ -6,7 +6,7 @@ import SearchSection from '../components/SearchSection';
 import BrowseSection from '../components/BrowseSection';
 
 const MovieList: React.FC = () => {
-    const {data, loading, error, searchMovies, browseMovies} = useFetchMovieList(); // create state by calling hook
+    const {data, loading, error, currentPage, hasNextPage, pageSize, searchMovies, browseMovies, browseByGenre, goToNextPage, goToPreviousPage, setPageSize} = useFetchMovieList(); // create state by calling hook
     const {data: genres} = useFetchGenres(); // fetch genres
     const [browseType, setBrowseType] = useState<'title' | 'genre'>('title');
     
@@ -29,6 +29,13 @@ const MovieList: React.FC = () => {
         }
     };
 
+    const handleGenreChange = (genreId: number) => {
+        // Only trigger browse if we're on the genre tab
+        if (browseType === 'genre') {
+            browseByGenre(genreId);
+        }
+    };
+
     if (error){
         return (
             <div className="movie-list-error">
@@ -48,6 +55,7 @@ const MovieList: React.FC = () => {
                 <BrowseSection 
                     onBrowseTypeChange={handleBrowseTypeChange}
                     onLetterChange={handleLetterChange}
+                    onGenreChange={handleGenreChange}
                     genres={genres}
                 />
                 
@@ -71,10 +79,60 @@ const MovieList: React.FC = () => {
             <BrowseSection 
                 onBrowseTypeChange={handleBrowseTypeChange}
                 onLetterChange={handleLetterChange}
+                onGenreChange={handleGenreChange}
                 genres={genres}
             />
             
             {data && <MovieListGrid movies={data} />}
+            
+            {/* Pagination Controls */}
+            {data && data.length > 0 && (
+                <div className="flex flex-col items-center gap-6 mt-8">
+                    <div className="flex items-center gap-2">
+                        <label htmlFor="pageSize" className="text-gray-600 font-medium">
+                            Movies per page:
+                        </label>
+                        <select
+                            id="pageSize"
+                            value={pageSize}
+                            onChange={(e) => setPageSize(Number(e.target.value))}
+                            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <div className="flex justify-center items-center gap-4">
+                        <button
+                            onClick={goToPreviousPage}
+                            disabled={currentPage === 0}
+                            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
+                                currentPage === 0
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white hover:shadow-lg'
+                            }`}
+                        >
+                            Previous Page
+                        </button>
+                        <span className="text-gray-600 font-medium">
+                            Page {currentPage + 1}
+                        </span>
+                        <button
+                            onClick={goToNextPage}
+                            disabled={!hasNextPage}
+                            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
+                                !hasNextPage
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white hover:shadow-lg'
+                            }`}
+                        >
+                            Next Page
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

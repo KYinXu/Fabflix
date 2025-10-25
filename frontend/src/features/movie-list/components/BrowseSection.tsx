@@ -4,10 +4,11 @@ import type { Genre } from "@/types/types";
 interface BrowseSectionProps {
     onBrowseTypeChange: (type: 'title' | 'genre') => void;
     onLetterChange: (letter: string) => void;
+    onGenreChange: (genreId: number) => void;
     genres?: Genre[] | null;
 }
 
-const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLetterChange, genres }) => {
+const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLetterChange, onGenreChange, genres }) => {
     const [activeTab, setActiveTab] = useState<'title' | 'genre'>('title');
     const [selectedLetter, setSelectedLetter] = useState<string>('All');
 
@@ -29,12 +30,12 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
     };
 
     const handleGenreClick = (genreId: number) => {
-        // TODO: Implement backend call to filter movies by genre
-        console.log('Genre clicked:', genreId);
+        onGenreChange(genreId);
     };
 
-    // Generate A-Z letters
+    // Generate A-Z letters and 0-9 numbers
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    const numbers = '0123456789'.split('');
 
     return (
         <div className="container mx-auto px-4 mb-8">
@@ -86,6 +87,19 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
                                     }`}
                                 >
                                     {letter}
+                                </button>
+                            ))}
+                            {numbers.map((number) => (
+                                <button
+                                    key={number}
+                                    onClick={() => handleLetterClick(number)}
+                                    className={`w-10 h-10 rounded-lg font-semibold transition-all duration-200 ${
+                                        selectedLetter === number
+                                            ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white shadow-lg scale-110'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105'
+                                    }`}
+                                >
+                                    {number}
                                 </button>
                             ))}
                             <button
