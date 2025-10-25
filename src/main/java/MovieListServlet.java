@@ -107,10 +107,7 @@ public class MovieListServlet extends HttpServlet{
             case "r.ratings", "m.title", "m.year", "m.director" -> sortCriteria;
             default -> "r.ratings";
         };
-        StringBuilder query = new StringBuilder(GET_MOVIE_LIST);
-        query.append("ORDER BY ").append(validatedCriteria).append(" ").append(validatedOrder).append(" ");
-        query.append("LIMIT ?");
-        return query.toString();
+        return GET_MOVIE_LIST + "ORDER BY " + validatedCriteria + " " + validatedOrder + " " + "LIMIT ?";
     }
     /**
      * Sets query parameters for movie list query
