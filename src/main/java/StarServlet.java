@@ -4,9 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import utils.ResponseUtils;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.sql.*;
 
 @WebServlet("/star/*")
@@ -67,7 +67,9 @@ public class StarServlet extends HttpServlet {
             // Write movie object to response
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
-            response.getWriter().write(star.toString());
+            try (PrintWriter writer = response.getWriter()) {
+                writer.write(star.toString());
+            }
         } catch (SQLException e) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
         } catch (IOException e) {
