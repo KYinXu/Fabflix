@@ -43,7 +43,7 @@ export const useFetchMovieList = () : useFetchReturn => {
     });
 
     // Data Fetching
-    const fetchMovie = async (titleQuery: string = '', starQuery: string = '', directorQuery: string = '', yearQuery: string = '', letter: string = '', genreId: number | null = null, page: number = 0, size: number = pageSize) => {
+    const fetchMovie = async (titleQuery: string = '', starQuery: string = '', directorQuery: string = '', yearQuery: string = '', letter: string = '', genreId: number | null = null, page: number = 0, size: number = 20) => {
         setLoading(true);
         setError(null);
         try{
@@ -81,7 +81,7 @@ export const useFetchMovieList = () : useFetchReturn => {
             console.log(fetchedData) // logs JSON data
             setData(fetchedData);
             
-            // Determine if there's a next page (if we got exactly pageSize results, there might be more)
+            // Determine if there's a next page (if we got exactly size results, there might be more)
             setHasNextPage(fetchedData.length === size);
         }
         catch (error){ // error handling for crashes
@@ -100,22 +100,22 @@ export const useFetchMovieList = () : useFetchReturn => {
     const searchMovies = useCallback(async (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => {
         setCurrentPage(0);
         setLastQuery({ titleQuery, starQuery, directorQuery, yearQuery, letter: '', genreId: null });
-        await fetchMovie(titleQuery, starQuery, directorQuery, yearQuery, '', null, 0);
-    }, []);
+        await fetchMovie(titleQuery, starQuery, directorQuery, yearQuery, '', null, 0, pageSize);
+    }, [pageSize]);
 
     // Browse function for browsing by letter
     const browseMovies = useCallback(async (letter: string) => {
         setCurrentPage(0);
         setLastQuery({ titleQuery: '', starQuery: '', directorQuery: '', yearQuery: '', letter, genreId: null });
-        await fetchMovie('', '', '', '', letter, null, 0);
-    }, []);
+        await fetchMovie('', '', '', '', letter, null, 0, pageSize);
+    }, [pageSize]);
 
     // Browse function for browsing by genre
     const browseByGenre = useCallback(async (genreId: number) => {
         setCurrentPage(0);
         setLastQuery({ titleQuery: '', starQuery: '', directorQuery: '', yearQuery: '', letter: '', genreId });
-        await fetchMovie('', '', '', '', '', genreId, 0);
-    }, []);
+        await fetchMovie('', '', '', '', '', genreId, 0, pageSize);
+    }, [pageSize]);
 
     // Pagination functions
     const goToNextPage = useCallback(async () => {
