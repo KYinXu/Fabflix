@@ -11,7 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @WebServlet(name = "MovieListServlet", urlPatterns = {"/", "/movies"}) // Allows Tomcat to Interpret URL
 public class MovieListServlet extends HttpServlet{
 
-    public static final String QUERY = """
+    public static final String GET_MOVIE_LIST = """
             SELECT m.id, m.title, m.year, m.director
             FROM movies m
             LEFT JOIN ratings r ON m.id = r.movie_id
@@ -40,6 +40,42 @@ public class MovieListServlet extends HttpServlet{
             WHERE gm.movie_id = ?
             LIMIT 3
             """;
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        // MySQL Connection Information
+        String loginUser = Parameters.username;
+        String loginPassword = Parameters.password;
+        String loginUrl = "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true";
+        // Set response information
+        addCORSHeader(response);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        PrintWriter frontendOutput = response.getWriter(); // Print Writer
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver"); // Register and Load driver
+        } catch (Exception e) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database connection error");
+        }
+        // Connect to database via URL
+        try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
+            JSONArray movies = new JSONArray();
+            try (PreparedStatement movieQuery = connection.prepareStatement(GET_MOVIE_LIST);
+                 ResultSet queryResult = movieQuery.executeQuery(GET_MOVIE_LIST)) {
+                ResultSetMetaData queriedMetaData = queryResult.getMetaData();
+                while (queryResult.next()) {
+                    JSONObject movie = new JSONObject();
+                    populateMovie(movie, connection, queryResult);
+                    movies.put(movie);
+                }
+            }
+            frontendOutput.write(movies.toString());
+            frontendOutput.flush();
+        }
+        catch (Exception e) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal server error");
+        }
+        frontendOutput.close();
+    }
 
     private void addCORSHeader(HttpServletResponse response){
         response.setHeader("Access-Control-Allow-Origin", "*");
@@ -47,122 +83,87 @@ public class MovieListServlet extends HttpServlet{
         response.setHeader("Access-Control-Allow-Headers", "Content-Type");
     }
 
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        addCORSHeader(response);
+    /**
+     * Helper function to populate a movie object with all relevant fields for display on main page
+     * @param movie - movie JSON object to populate
+     * @param connection - current database connection
+     * @param queryResult - next result from movie list query
+     * @throws SQLException - SQL exception if database communication fails
+     */
+    protected void populateMovie(JSONObject movie, Connection connection, ResultSet queryResult) throws SQLException {
+        insertResult(queryResult, movie);
+        String movieId = queryResult.getString("id");
+        insertRatingsInMovie(connection, movie, movieId);
+        insertStarsInMovie(connection, movie, movieId);
+        insertGenresInMovie(connection, movie, movieId);
+    }
+    /**
+     * Inserts ratings information into the current movie object
+     * @param connection - current database connection
+     * @param movie - movie JSON object to insert ratings into
+     * @param movieId - ID of movie to query ratings table for
+     * @throws SQLException - SQL exception if database communication fails
+     */
+    protected void insertRatingsInMovie(Connection connection, JSONObject movie, String movieId) throws SQLException {
+        try (PreparedStatement ratingsStmt = connection.prepareStatement(GET_RATINGS_QUERY)) {
+            ratingsStmt.setString(1, movieId);
+            try (ResultSet ratingsRs = ratingsStmt.executeQuery()) {
+                if (ratingsRs.next()) {
+                    JSONObject ratings = new JSONObject();
+                    insertResult(ratingsRs, ratings);
+                    movie.put("ratings", ratings);
 
-        // MySQL Connection Information
-        String loginUser = Parameters.username;
-        String loginPassword = Parameters.password;
-        String loginUrl = "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true";
-
-        // Response Mime Type
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
-
-        // Print Writer
-        PrintWriter frontendOutput = response.getWriter();
-
-        // Register and Load driver
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        // Connect to database via URL
-        try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
-
-            // Create JSON Movie List
-            JSONArray movies = new JSONArray();
-
-            // Get movies
-            try (Statement movieQuery = connection.createStatement();
-                 ResultSet queryResult = movieQuery.executeQuery(QUERY)) {
-
-                ResultSetMetaData queriedMetaData = queryResult.getMetaData();
-
-                // Retrieve Query Output
-                while (queryResult.next()) {
-                    JSONObject movie = new JSONObject();
-
-                    // Iterate and Add to Movie Object
-                    for (int i = 1; i <= queriedMetaData.getColumnCount(); i++) {
-                        String col = queriedMetaData.getColumnName(i);
-                        Object val = queryResult.getObject(i);
-                        movie.put(col, val);
-                    }
-
-                    String movieId = queryResult.getString("id");
-
-                    // Get ratings for this movie
-                    try (PreparedStatement ratingsStmt = connection.prepareStatement(GET_RATINGS_QUERY)) {
-                        ratingsStmt.setString(1, movieId);
-                        try (ResultSet ratingsRs = ratingsStmt.executeQuery()) {
-                            if (ratingsRs.next()) {
-                                JSONObject ratings = new JSONObject();
-                                ResultSetMetaData ratingsMetaData = ratingsRs.getMetaData();
-                                for (int i = 1; i <= ratingsMetaData.getColumnCount(); i++) {
-                                    String col = ratingsMetaData.getColumnName(i);
-                                    Object val = ratingsRs.getObject(i);
-                                    ratings.put(col, val);
-                                }
-                                movie.put("ratings", ratings);
-                            }
-                        }
-                    }
-
-                    // Get stars for this movie (limit 3)
-                    try (PreparedStatement starsStmt = connection.prepareStatement(GET_STARS_QUERY)) {
-                        starsStmt.setString(1, movieId);
-                        try (ResultSet starsRs = starsStmt.executeQuery()) {
-                            JSONArray stars = new JSONArray();
-                            ResultSetMetaData starsMetaData = starsRs.getMetaData();
-                            while (starsRs.next()) {
-                                JSONObject star = new JSONObject();
-                                for (int i = 1; i <= starsMetaData.getColumnCount(); i++) {
-                                    String col = starsMetaData.getColumnName(i);
-                                    Object val = starsRs.getObject(i);
-                                    star.put(col, val);
-                                }
-                                stars.put(star);
-                            }
-                            movie.put("stars", stars);
-                        }
-                    }
-
-                    // Get genres for this movie (limit 3)
-                    try (PreparedStatement genresStmt = connection.prepareStatement(GET_GENRES_QUERY)) {
-                        genresStmt.setString(1, movieId);
-                        try (ResultSet genresRs = genresStmt.executeQuery()) {
-                            JSONArray genres = new JSONArray();
-                            ResultSetMetaData genresMetaData = genresRs.getMetaData();
-                            while (genresRs.next()) {
-                                JSONObject genre = new JSONObject();
-                                for (int i = 1; i <= genresMetaData.getColumnCount(); i++) {
-                                    String col = genresMetaData.getColumnName(i);
-                                    Object val = genresRs.getObject(i);
-                                    genre.put(col, val);
-                                }
-                                genres.put(genre);
-                            }
-                            movie.put("genres", genres);
-                        }
-                    }
-
-                    // Add Movie Object to Movies Array
-                    movies.put(movie);
                 }
             }
-
-            // Write movie object to response
-            frontendOutput.write(movies.toString());
-            frontendOutput.flush();
         }
-        catch (Exception e) {
-            throw new RuntimeException(e);
+    }
+    /**
+     * Inserts stars information into the current movie object
+     * @param connection - current database connection
+     * @param movie - movie JSON object to insert ratings into
+     * @param movieId - ID of movie to query ratings table for
+     * @throws SQLException - SQL exception if database communication fails
+     */
+    protected void insertStarsInMovie(Connection connection, JSONObject movie, String movieId) throws SQLException {
+        try (PreparedStatement starsStmt = connection.prepareStatement(GET_STARS_QUERY)) {
+            starsStmt.setString(1, movieId);
+            try (ResultSet starsRs = starsStmt.executeQuery()) {
+                JSONArray stars = new JSONArray();
+                while (starsRs.next()) {
+                    JSONObject star = new JSONObject();
+                    insertResult(starsRs, star);
+                }
+                movie.put("stars", stars);
+            }
         }
+    }
+    /**
+     * Inserts genres information into the current movie object
+     * @param connection - current database connection
+     * @param movie - movie JSON object to insert ratings into
+     * @param movieId - ID of movie to query ratings table for
+     * @throws SQLException - SQL exception if database communication fails
+     */
+    protected void insertGenresInMovie(Connection connection, JSONObject movie, String movieId) throws SQLException {
+        try (PreparedStatement genresStmt = connection.prepareStatement(GET_GENRES_QUERY)) {
+            genresStmt.setString(1, movieId);
+            try (ResultSet genresRs = genresStmt.executeQuery()) {
+                JSONArray genres = new JSONArray();
+                while (genresRs.next()) {
+                    JSONObject genre = new JSONObject();
+                    insertResult(genresRs, genre);
+                }
+                movie.put("genres", genres);
+            }
+        }
+    }
 
-        frontendOutput.close();
-
+    protected void insertResult(ResultSet rs, JSONObject obj) throws SQLException {
+        ResultSetMetaData rsmd = rs.getMetaData();
+        for (int i = 1; i <= rsmd.getColumnCount(); i++) {
+            String col = rsmd.getColumnName(i);
+            Object val = rs.getObject(i);
+            obj.put(col, val);
+        }
     }
 }
