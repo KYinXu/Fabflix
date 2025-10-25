@@ -25,6 +25,7 @@ public class StarServlet extends HttpServlet {
                 FROM movies m
                 INNER JOIN stars_in_movies sm ON m.id = sm.movie_id
                 WHERE sm.star_id = ?
+                ORDER BY m.year DESC, m.title ASC
                 """;
 
         try {

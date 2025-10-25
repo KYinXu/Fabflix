@@ -38,7 +38,7 @@ public class MovieListServlet extends HttpServlet{
     public static final int YEAR_SEARCH_CHECK_IDX = 6;
     public static final int DISPLAY_LIMIT_IDX = 7;
     public static final int DISPLAY_OFFSET_IDX = 8;
-    private static final int DEFAULT_MOVIES_PER_PAGE = 20;
+    private static final int DEFAULT_MOVIES_PER_PAGE = 25;
     private static final int[] ALLOWED_PAGE_SIZES = {10, 25, 50, 100};
     
     public static final String GET_RATINGS_QUERY = """
@@ -48,10 +48,14 @@ public class MovieListServlet extends HttpServlet{
             """;
     
     public static final String GET_STARS_QUERY = """
-            SELECT s.id, s.name, s.birth_year
+            SELECT s.id, s.name, s.birth_year, 
+                   (SELECT COUNT(*) 
+                    FROM stars_in_movies sm2 
+                    WHERE sm2.star_id = s.id) as movie_count
             FROM stars s
             INNER JOIN stars_in_movies sm ON s.id = sm.star_id
             WHERE sm.movie_id = ?
+            ORDER BY movie_count DESC, s.name ASC
             LIMIT 3
             """;
     
@@ -60,6 +64,7 @@ public class MovieListServlet extends HttpServlet{
             FROM genres g
             INNER JOIN genres_in_movies gm ON g.id = gm.genre_id
             WHERE gm.movie_id = ?
+            ORDER BY g.name ASC
             LIMIT 3
             """;
     

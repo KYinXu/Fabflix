@@ -23,7 +23,7 @@ export const useFetchMovieList = () : useFetchReturn => {
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState<number>(0);
     const [hasNextPage, setHasNextPage] = useState<boolean>(false);
-    const [pageSize, setPageSizeState] = useState<number>(20);
+    const [pageSize, setPageSizeState] = useState<number>(25);
     
     // Track query parameters for pagination
     const [lastQuery, setLastQuery] = useState<{
@@ -43,7 +43,7 @@ export const useFetchMovieList = () : useFetchReturn => {
     });
 
     // Data Fetching
-    const fetchMovie = async (titleQuery: string = '', starQuery: string = '', directorQuery: string = '', yearQuery: string = '', letter: string = '', genreId: number | null = null, page: number = 0, size: number = 20) => {
+    const fetchMovie = async (titleQuery: string = '', starQuery: string = '', directorQuery: string = '', yearQuery: string = '', letter: string = '', genreId: number | null = null, page: number = 0, size: number = 25) => {
         setLoading(true);
         setError(null);
         try{
@@ -71,7 +71,7 @@ export const useFetchMovieList = () : useFetchReturn => {
             if (page > 0) {
                 params.append('page', page.toString());
             }
-            if (size !== 20) {
+            if (size !== 25) {
                 params.append('pageSize', size.toString());
             }
             const url = params.toString() ? `${BASE_URL}?${params.toString()}` : BASE_URL;

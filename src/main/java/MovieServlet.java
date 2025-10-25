@@ -27,16 +27,21 @@ public class MovieServlet extends HttpServlet {
                 WHERE movie_id = ?
                 """;
         String GET_STARS_INFORMATION = """
-                SELECT s.*
+                SELECT s.*, 
+                       (SELECT COUNT(*) 
+                        FROM stars_in_movies sm2 
+                        WHERE sm2.star_id = s.id) as movie_count
                 FROM stars s
                 INNER JOIN stars_in_movies sm ON s.id = sm.star_id
                 WHERE sm.movie_id = ?
+                ORDER BY movie_count DESC, s.name ASC
                 """;
         String GET_GENRES_INFORMATION = """
                 SELECT g.*
                 FROM genres g
                     INNER JOIN genres_in_movies gm ON g.id = gm.genre_id
                 WHERE gm.movie_id = ?
+                ORDER BY g.name ASC
                 """;
 
         try {
