@@ -15,10 +15,12 @@ public class MovieListServlet extends HttpServlet{
             SELECT m.id, m.title, m.year, m.director
             FROM movies m
             LEFT JOIN ratings r ON m.id = r.movie_id
-            ORDER BY r.ratings DESC
-            LIMIT 20;
+            ORDER BY ? ?
+            LIMIT ?;
             """;
-    
+    public static final int SORT_CRITERIA_IDX = 1;
+    public static final int SORT_ORDER_IDX = 2;
+    public static final int DISPLAY_LIMIT_IDX = 3;
     public static final String GET_RATINGS_QUERY = """
             SELECT ratings, vote_count
             FROM ratings
@@ -49,7 +51,6 @@ public class MovieListServlet extends HttpServlet{
         addCORSHeader(response);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-
         PrintWriter frontendOutput = response.getWriter(); // Print Writer
         try {
             Class.forName("com.mysql.cj.jdbc.Driver"); // Register and Load driver
@@ -59,17 +60,24 @@ public class MovieListServlet extends HttpServlet{
         // Connect to database via URL
         try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
             JSONArray movies = new JSONArray();
-            try (PreparedStatement movieQuery = connection.prepareStatement(GET_MOVIE_LIST);
-                 ResultSet queryResult = movieQuery.executeQuery(GET_MOVIE_LIST)) {
-                ResultSetMetaData queriedMetaData = queryResult.getMetaData();
-                while (queryResult.next()) {
-                    JSONObject movie = new JSONObject();
-                    populateMovie(movie, connection, queryResult);
-                    movies.put(movie);
+            try (PreparedStatement movieQuery = connection.prepareStatement(GET_MOVIE_LIST)) {
+                movieQuery.setString(SORT_CRITERIA_IDX, "r.ratings");
+                movieQuery.setString(SORT_ORDER_IDX, "DESC");
+                movieQuery.setInt(DISPLAY_LIMIT_IDX, 20);
+                try(ResultSet queryResult = movieQuery.executeQuery()) {
+                    //ResultSetMetaData queriedMetaData = queryResult.getMetaData();
+                    while (queryResult.next()) {
+                        JSONObject movie = new JSONObject();
+                        populateMovie(movie, connection, queryResult);
+                        movies.put(movie);
+                    }
                 }
             }
             frontendOutput.write(movies.toString());
             frontendOutput.flush();
+        }
+        catch (SQLException e) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
         }
         catch (Exception e) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal server error");
