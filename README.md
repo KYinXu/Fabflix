@@ -1,4 +1,4 @@
-# Project 1
+# Fabflix
 ##### Kyle Yin Xu and Armin Mohammadi
 ***
 
