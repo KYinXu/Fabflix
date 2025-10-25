@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Movie } from '@/types/types';
 
 interface MovieListItemProps {
@@ -7,9 +7,19 @@ interface MovieListItemProps {
 }
 
 const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
+    const navigate = useNavigate();
+    
+    const handleCardClick = (e: React.MouseEvent) => {
+        // Only navigate if the click wasn't on a link or interactive element
+        if ((e.target as HTMLElement).closest('a')) {
+            return;
+        }
+        navigate(`/movie/${movie.id}`);
+    };
+    
     return (
-        <Link
-            to={`/movie/${movie.id}`}
+        <div
+            onClick={handleCardClick}
             className="p-6 border-2 border-gray-200 rounded-lg shadow-md hover:shadow-2xl hover:border-blue-500 hover:scale-105 transition-all duration-300 cursor-pointer block bg-white"
         >
             <div className="flex justify-between items-start mb-3">
@@ -58,7 +68,6 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
                                 <Link
                                     key={star.id}
                                     to={`/star/${star.id}`}
-                                    onClick={(e) => e.stopPropagation()}
                                     className="px-3 py-1.5 bg-purple-100 text-purple-700 text-sm rounded-md hover:bg-purple-200 hover:shadow-md transition-all duration-200 font-medium"
                                 >
                                     {star.name}
@@ -68,7 +77,7 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
                     </div>
                 )}
             </div>
-        </Link>
+        </div>
     );
 };
 

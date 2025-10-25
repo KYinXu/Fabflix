@@ -15,12 +15,11 @@ public class MovieListServlet extends HttpServlet{
             SELECT m.id, m.title, m.year, m.director
             FROM movies m
             LEFT JOIN ratings r ON m.id = r.movie_id
-            ORDER BY ? ?
-            LIMIT ?;
+            WHERE m.title LIKE ?
             """;
-    public static final int SORT_CRITERIA_IDX = 1;
-    public static final int SORT_ORDER_IDX = 2;
-    public static final int DISPLAY_LIMIT_IDX = 3;
+    public static final int TITLE_SEARCH_IDX = 1;
+    public static final int DISPLAY_LIMIT_IDX = 2;
+    
     public static final String GET_RATINGS_QUERY = """
             SELECT ratings, vote_count
             FROM ratings
@@ -60,10 +59,12 @@ public class MovieListServlet extends HttpServlet{
         // Connect to database via URL
         try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
             JSONArray movies = new JSONArray();
-            try (PreparedStatement movieQuery = connection.prepareStatement(GET_MOVIE_LIST)) {
-                movieQuery.setString(SORT_CRITERIA_IDX, "r.ratings");
-                movieQuery.setString(SORT_ORDER_IDX, "DESC");
-                movieQuery.setInt(DISPLAY_LIMIT_IDX, 20);
+            String titlePattern = createTitlePattern(request.getParameter("title"));
+            String sortCriteria = "r.ratings";
+            String sortOrder = "DESC";
+            String completeQuery = buildMovieListQuery(sortCriteria, sortOrder);
+            try (PreparedStatement movieQuery = connection.prepareStatement(completeQuery)) {
+                setQueryParameters(movieQuery, titlePattern);
                 try(ResultSet queryResult = movieQuery.executeQuery()) {
                     //ResultSetMetaData queriedMetaData = queryResult.getMetaData();
                     while (queryResult.next()) {
@@ -91,6 +92,46 @@ public class MovieListServlet extends HttpServlet{
         response.setHeader("Access-Control-Allow-Headers", "Content-Type");
     }
 
+    /**
+     * Builds the complete movie list query by adding ORDER BY clause dynamically
+     * @param sortCriteria - column to sort by (e.g., "r.ratings", "m.title")
+     * @param sortOrder - sort order (e.g., "ASC", "DESC")
+     * @return Complete SQL query string with ORDER BY clause
+     */
+    protected String buildMovieListQuery(String sortCriteria, String sortOrder) {
+        String validatedOrder = switch (sortOrder.toUpperCase()) {
+            case "ASC", "DESC" -> sortOrder.toUpperCase();
+            default -> "DESC";
+        };
+        String validatedCriteria = switch (sortCriteria) {
+            case "r.ratings", "m.title", "m.year", "m.director" -> sortCriteria;
+            default -> "r.ratings";
+        };
+        StringBuilder query = new StringBuilder(GET_MOVIE_LIST);
+        query.append("ORDER BY ").append(validatedCriteria).append(" ").append(validatedOrder).append(" ");
+        query.append("LIMIT ?");
+        return query.toString();
+    }
+    /**
+     * Sets query parameters for movie list query
+     * @param movieQuery - prepared statement for movie list query
+     * @param titlePattern - pattern used by SQL query to find movies with similar titles
+     */
+    protected void setQueryParameters(PreparedStatement movieQuery, String titlePattern) throws SQLException {
+        movieQuery.setString(TITLE_SEARCH_IDX, titlePattern);
+        movieQuery.setInt(DISPLAY_LIMIT_IDX, 20);
+    }
+    
+    /**
+     * Converts raw text input from movie search bar into query-able SQL sequence
+     * @param titleSearch - movie search bar input string
+     * @return - Pattern used by SQL query to find movies with similar titles
+     */
+    protected String createTitlePattern(String titleSearch) {
+        return (titleSearch != null && !titleSearch.trim().isEmpty())
+                ? "%" + titleSearch.trim() + "%"
+                : "%";
+    }
     /**
      * Helper function to populate a movie object with all relevant fields for display on main page
      * @param movie - movie JSON object to populate
@@ -140,6 +181,7 @@ public class MovieListServlet extends HttpServlet{
                 while (starsRs.next()) {
                     JSONObject star = new JSONObject();
                     insertResult(starsRs, star);
+                    stars.put(star);
                 }
                 movie.put("stars", stars);
             }
@@ -160,6 +202,7 @@ public class MovieListServlet extends HttpServlet{
                 while (genresRs.next()) {
                     JSONObject genre = new JSONObject();
                     insertResult(genresRs, genre);
+                    genres.put(genre);
                 }
                 movie.put("genres", genres);
             }

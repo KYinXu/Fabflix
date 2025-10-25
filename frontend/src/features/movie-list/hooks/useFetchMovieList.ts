@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type {Movie} from "@/types/types";
 
 interface useFetchReturn {
     data: Movie[] | null;
     loading: boolean;
     error: string | null;
+    searchMovies: (titleQuery: string) => Promise<void>;
 }
 
 export const useFetchMovieList = () : useFetchReturn => {
@@ -14,10 +15,17 @@ export const useFetchMovieList = () : useFetchReturn => {
     const [error, setError] = useState<string | null>(null);
 
     // Data Fetching
-    const fetchMovie = async () => {
+    const fetchMovie = async (titleQuery: string = '') => {
+        setLoading(true);
+        setError(null);
         try{
-            const BASE_URL = 'http://localhost:8080/2025_fall_cs_122b_untitled_group_name_war/';
-            const fetching = await fetch(BASE_URL)
+            const BASE_URL = 'http://localhost:8080/';
+            // Add title parameter if provided
+            const url = titleQuery.trim()
+                ? `${BASE_URL}?title=${encodeURIComponent(titleQuery.trim())}`
+                : BASE_URL;
+            
+            const fetching = await fetch(url)
             const fetchedData = await fetching.json() // converts to JSON
             console.log(fetchedData) // logs JSON data
             setData(fetchedData);
@@ -34,10 +42,15 @@ export const useFetchMovieList = () : useFetchReturn => {
         }
     }
 
+    // Search function for parent component
+    const searchMovies = useCallback(async (titleQuery: string) => {
+        await fetchMovie(titleQuery);
+    }, []);
+
     // Run & Return States
     useEffect(() => {
         fetchMovie();
     }, []); // no argument, as this page is static
 
-    return { data, loading, error };
+    return { data, loading, error, searchMovies };
 }
