@@ -143,9 +143,14 @@ public class MovieListServlet extends HttpServlet{
                 int page = (pageParam != null && !pageParam.isEmpty()) ? Integer.parseInt(pageParam) : 0;
                 int pageSize = parsePageSize(request.getParameter("pageSize"));
                 
-                String sortCriteria = "r.ratings";
-                String sortOrder = "DESC";
-                String completeQuery = buildMovieListQuery(sortCriteria, sortOrder);
+                // Parse sort parameters
+                String sortCriteriaParam = request.getParameter("sortCriteria");
+                String sortOrderParam = request.getParameter("sortOrder");
+                String tieBreakerParam = request.getParameter("tieBreaker");
+                
+                String sortCriteria = (sortCriteriaParam != null && !sortCriteriaParam.isEmpty()) ? sortCriteriaParam : "r.ratings";
+                String sortOrder = (sortOrderParam != null && !sortOrderParam.isEmpty()) ? sortOrderParam : "DESC";
+                String completeQuery = buildMovieListQuery(sortCriteria, sortOrder, tieBreakerParam);
                 //noinspection SqlSourceToSinkFlow
                 try (PreparedStatement movieQuery = connection.prepareStatement(completeQuery)) {
                     setQueryParameters(movieQuery, titlePattern, starPattern, directorPattern, year, page, pageSize);
@@ -185,18 +190,35 @@ public class MovieListServlet extends HttpServlet{
      * Builds the complete movie list query by adding ORDER BY clause dynamically
      * @param sortCriteria - column to sort by (e.g., "r.ratings", "m.title")
      * @param sortOrder - sort order (e.g., "ASC", "DESC")
+     * @param tieBreaker - column to use as tie-breaker (e.g., "title", null)
      * @return Complete SQL query string with ORDER BY clause
      */
-    protected String buildMovieListQuery(String sortCriteria, String sortOrder) {
+    protected String buildMovieListQuery(String sortCriteria, String sortOrder, String tieBreaker) {
         String validatedOrder = switch (sortOrder.toUpperCase()) {
             case "ASC", "DESC" -> sortOrder.toUpperCase();
             default -> "DESC";
         };
         String validatedCriteria = switch (sortCriteria) {
-            case "r.ratings", "m.title", "m.year", "m.director" -> sortCriteria;
+            case "r.ratings" -> "r.ratings";
+            case "m.title" -> "m.title";
+            case "m.year" -> "m.year";
+            case "m.director" -> "m.director";
             default -> "r.ratings";
         };
-        return GET_MOVIE_LIST + "ORDER BY " + validatedCriteria + " " + validatedOrder + " " + "LIMIT ? OFFSET ?";
+        
+        String orderByClause = "ORDER BY " + validatedCriteria + " " + validatedOrder;
+        if (tieBreaker != null && !tieBreaker.isEmpty()) {
+            String tieBreakerField = switch (tieBreaker) {
+                case "title" -> "m.title";
+                case "ratings" -> "r.ratings";
+                default -> "";
+            };
+            if (!tieBreakerField.isEmpty()) {
+                orderByClause += ", " + tieBreakerField + " " + validatedOrder;
+            }
+        }
+        
+        return GET_MOVIE_LIST + orderByClause + " " + "LIMIT ? OFFSET ?";
     }
     /**
      * Sets query parameters for movie list query

@@ -8,12 +8,16 @@ interface useFetchReturn {
     currentPage: number;
     hasNextPage: boolean;
     pageSize: number;
+    sortCriteria: string;
+    sortOrder: string;
     searchMovies: (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => Promise<void>;
     browseMovies: (letter: string) => Promise<void>;
     browseByGenre: (genreId: number) => Promise<void>;
     goToNextPage: () => Promise<void>;
     goToPreviousPage: () => Promise<void>;
     setPageSize: (size: number) => Promise<void>;
+    setSortCriteria: (criteria: string) => Promise<void>;
+    setSortOrder: (order: string) => Promise<void>;
 }
 
 export const useFetchMovieList = () : useFetchReturn => {
@@ -24,6 +28,8 @@ export const useFetchMovieList = () : useFetchReturn => {
     const [currentPage, setCurrentPage] = useState<number>(0);
     const [hasNextPage, setHasNextPage] = useState<boolean>(false);
     const [pageSize, setPageSizeState] = useState<number>(25);
+    const [sortCriteria, setSortCriteriaState] = useState<string>('r.ratings');
+    const [sortOrder, setSortOrderState] = useState<string>('DESC');
     
     // Track query parameters for pagination
     const [lastQuery, setLastQuery] = useState<{
@@ -43,7 +49,7 @@ export const useFetchMovieList = () : useFetchReturn => {
     });
 
     // Data Fetching
-    const fetchMovie = async (titleQuery: string = '', starQuery: string = '', directorQuery: string = '', yearQuery: string = '', letter: string = '', genreId: number | null = null, page: number = 0, size: number = 25) => {
+    const fetchMovie = async (titleQuery: string = '', starQuery: string = '', directorQuery: string = '', yearQuery: string = '', letter: string = '', genreId: number | null = null, page: number = 0, size: number = 25, criteria: string = sortCriteria, order: string = sortOrder) => {
         setLoading(true);
         setError(null);
         try{
@@ -73,6 +79,18 @@ export const useFetchMovieList = () : useFetchReturn => {
             }
             if (size !== 25) {
                 params.append('pageSize', size.toString());
+            }
+            if (criteria === 'r.ratings') {
+                params.append('sortCriteria', 'r.ratings');
+                params.append('tieBreaker', 'title');
+            } else {
+                params.append('sortCriteria', criteria);
+                if (criteria === 'm.title') {
+                    params.append('tieBreaker', 'ratings');
+                }
+            }
+            if (order !== 'DESC') {
+                params.append('sortOrder', order);
             }
             const url = params.toString() ? `${BASE_URL}?${params.toString()}` : BASE_URL;
 
@@ -163,12 +181,46 @@ export const useFetchMovieList = () : useFetchReturn => {
             0,
             size
         );
-    }, [lastQuery]);
+    }, [lastQuery, sortCriteria, sortOrder]);
+
+    const setSortCriteria = useCallback(async (criteria: string) => {
+        setSortCriteriaState(criteria);
+        setCurrentPage(0); // Reset to first page when changing sort
+        await fetchMovie(
+            lastQuery.titleQuery,
+            lastQuery.starQuery,
+            lastQuery.directorQuery,
+            lastQuery.yearQuery,
+            lastQuery.letter,
+            lastQuery.genreId,
+            0,
+            pageSize,
+            criteria,
+            sortOrder
+        );
+    }, [lastQuery, pageSize, sortOrder]);
+
+    const setSortOrder = useCallback(async (order: string) => {
+        setSortOrderState(order);
+        setCurrentPage(0); // Reset to first page when changing sort
+        await fetchMovie(
+            lastQuery.titleQuery,
+            lastQuery.starQuery,
+            lastQuery.directorQuery,
+            lastQuery.yearQuery,
+            lastQuery.letter,
+            lastQuery.genreId,
+            0,
+            pageSize,
+            sortCriteria,
+            order
+        );
+    }, [lastQuery, pageSize, sortCriteria]);
 
     // Run & Return States
     useEffect(() => {
         fetchMovie();
     }, []); // no argument, as this page is static
 
-    return { data, loading, error, currentPage, hasNextPage, pageSize, searchMovies, browseMovies, browseByGenre, goToNextPage, goToPreviousPage, setPageSize };
+    return { data, loading, error, currentPage, hasNextPage, pageSize, sortCriteria, sortOrder, searchMovies, browseMovies, browseByGenre, goToNextPage, goToPreviousPage, setPageSize, setSortCriteria, setSortOrder };
 }

@@ -5,11 +5,12 @@ import { useFetchGenres } from "../hooks/useFetchGenres";
 import MovieListGrid from '../components/MovieListGrid';
 import SearchSection from '../components/SearchSection';
 import BrowseSection from '../components/BrowseSection';
+import SortControl from '../components/SortControl';
 
 const MovieList: React.FC = () => {
-    const {data, loading, error, currentPage, hasNextPage, pageSize, searchMovies, browseMovies, browseByGenre, goToNextPage, goToPreviousPage, setPageSize} = useFetchMovieList(); // create state by calling hook
+    const {data, loading, error, currentPage, hasNextPage, pageSize, sortCriteria, sortOrder, searchMovies, browseMovies, browseByGenre, goToNextPage, goToPreviousPage, setPageSize, setSortCriteria, setSortOrder} = useFetchMovieList(); // create state by calling hook
     const {data: genres} = useFetchGenres(); // fetch genres
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
     const [browseType, setBrowseType] = useState<'title' | 'genre'>('title');
     const [selectedLetter, setSelectedLetter] = useState<string>('All');
     const [selectedGenreId, setSelectedGenreId] = useState<number | null>(null);
@@ -89,9 +90,21 @@ const MovieList: React.FC = () => {
                     genres={genres}
                 />
                 
+                {/* Sort Control */}
+                <div className="container mx-auto px-4 mb-6">
+                    <div className="max-w-7xl mx-auto">
+                        <SortControl 
+                            sortCriteria={sortCriteria}
+                            sortOrder={sortOrder}
+                            onSortCriteriaChange={setSortCriteria}
+                            onSortOrderChange={setSortOrder}
+                        />
+                    </div>
+                </div>
+                
                 <div className="container mx-auto px-4">
                     <p className="text-gray-600 text-center">
-                        Filler text
+                        Loading movies...
                     </p>
                 </div>
             </div>
@@ -112,6 +125,18 @@ const MovieList: React.FC = () => {
                 onGenreChange={handleGenreChange}
                 genres={genres}
             />
+            
+            {/* Sort Control */}
+            <div className="container mx-auto px-4 mb-6">
+                <div className="max-w-7xl mx-auto">
+                    <SortControl 
+                        sortCriteria={sortCriteria}
+                        sortOrder={sortOrder}
+                        onSortCriteriaChange={setSortCriteria}
+                        onSortOrderChange={setSortOrder}
+                    />
+                </div>
+            </div>
             
             {/* Display current filter */}
             {(selectedLetter || selectedGenreId !== null) && (
