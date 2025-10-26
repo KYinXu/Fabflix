@@ -16,13 +16,21 @@ public class MovieListServlet extends HttpServlet{
     public static final String GET_MOVIE_LIST = """
             SELECT DISTINCT m.id, m.title, m.year, m.director, r.ratings
             FROM movies m
-            LEFT JOIN ratings r ON m.id = r.movie_id
-            LEFT JOIN stars_in_movies sm ON m.id = sm.movie_id
-            LEFT JOIN stars s ON sm.star_id = s.id
+            INNER JOIN ratings r ON m.id = r.movie_id
+            INNER JOIN stars_in_movies sm ON m.id = sm.movie_id
+            INNER JOIN stars s ON sm.star_id = s.id
             WHERE m.title LIKE ?
             AND (s.name LIKE ? OR ? = '%')
             AND m.director LIKE ?
             AND (m.year = ? OR ? = -1)
+            """;
+    
+    public static final String GET_MOVIE_LIST_BY_GENRE = """
+            SELECT DISTINCT m.id, m.title, m.year, m.director, r.ratings
+            FROM movies m
+            INNER JOIN ratings r ON m.id = r.movie_id
+            INNER JOIN genres_in_movies gm ON m.id = gm.movie_id
+            WHERE gm.genre_id = ?
             """;
     public static final int TITLE_SEARCH_IDX = 1;
     public static final int STAR_SEARCH_IDX = 2;
@@ -31,29 +39,39 @@ public class MovieListServlet extends HttpServlet{
     public static final int YEAR_SEARCH_IDX = 5;
     public static final int YEAR_SEARCH_CHECK_IDX = 6;
     public static final int DISPLAY_LIMIT_IDX = 7;
+    public static final int DISPLAY_OFFSET_IDX = 8;
+    private static final int DEFAULT_MOVIES_PER_PAGE = 25;
+    private static final int[] ALLOWED_PAGE_SIZES = {10, 25, 50, 100};
     
-    public static final String GET_RATINGS_QUERY = """
-            SELECT ratings, vote_count
-            FROM ratings
-            WHERE movie_id = ?
+    public static final String GET_ALL_GENRES_QUERY = """
+            SELECT DISTINCT id, name
+            FROM genres
+            ORDER BY name ASC
             """;
     
-    public static final String GET_STARS_QUERY = """
-            SELECT s.id, s.name, s.birth_year
+    // Batched query templates for movie list population
+    public static final String BATCH_RATINGS_QUERY_TEMPLATE = """
+            SELECT movie_id, ratings, vote_count
+            FROM ratings
+            WHERE movie_id IN
+            """;
+    
+    public static final String BATCH_STARS_QUERY_TEMPLATE = """
+            SELECT sm.movie_id, s.id, s.name, s.birth_year,
+                   (SELECT COUNT(*) FROM stars_in_movies sm2 WHERE sm2.star_id = s.id) as movie_count
             FROM stars s
             INNER JOIN stars_in_movies sm ON s.id = sm.star_id
-            WHERE sm.movie_id = ?
-            LIMIT 3
+            WHERE sm.movie_id IN
             """;
     
-    public static final String GET_GENRES_QUERY = """
-            SELECT g.id, g.name
+    public static final String BATCH_GENRES_QUERY_TEMPLATE = """
+            SELECT gm.movie_id, g.id, g.name
             FROM genres g
             INNER JOIN genres_in_movies gm ON g.id = gm.genre_id
-            WHERE gm.movie_id = ?
-            LIMIT 3
+            WHERE gm.movie_id IN
             """;
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+
         // MySQL Connection Information
         String loginUser = Parameters.username;
         String loginPassword = Parameters.password;
@@ -62,30 +80,77 @@ public class MovieListServlet extends HttpServlet{
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         PrintWriter frontendOutput = response.getWriter(); // Print Writer
+
+
         try {
             Class.forName("com.mysql.cj.jdbc.Driver"); // Register and Load driver
         } catch (Exception e) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database connection error");
         }
+
+        // Check if client wants genre list (early return pattern)
+        String action = request.getParameter("action");
+        if ("listGenres".equals(action)) {
+            try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
+                handleGenreList(frontendOutput, connection);
+            } catch (SQLException e) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error getting genre list");
+            }
+            // frontendOutput will be closed below with the rest of the method
+            frontendOutput.close();
+            return;
+        }
         // Connect to database via URL
         try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
+            // Return movie list (existing behavior)
             JSONArray movies = new JSONArray();
-            String titlePattern = createSearchPattern(request.getParameter("title"));
-            String starPattern = createSearchPattern(request.getParameter("star"));
-            String directorPattern = createSearchPattern(request.getParameter("director"));
-            int year = createYearFilter(request.getParameter("year"));
-            String sortCriteria = "r.ratings";
-            String sortOrder = "DESC";
-            String completeQuery = buildMovieListQuery(sortCriteria, sortOrder);
-            //noinspection SqlSourceToSinkFlow
-            try (PreparedStatement movieQuery = connection.prepareStatement(completeQuery)) {
-                setQueryParameters(movieQuery, titlePattern, starPattern, directorPattern, year);
-                try(ResultSet queryResult = movieQuery.executeQuery()) {
-                    //ResultSetMetaData queriedMetaData = queryResult.getMetaData();
-                    while (queryResult.next()) {
-                        JSONObject movie = new JSONObject();
-                        populateMovie(movie, connection, queryResult);
-                        movies.put(movie);
+            
+            // Check if browsing by genre
+            String genreIdParam = request.getParameter("genreId");
+            if (genreIdParam != null && !genreIdParam.trim().isEmpty()) {
+                // Handle genre-based filtering
+                try {
+                    int genreId = Integer.parseInt(genreIdParam);
+                    String pageParam = request.getParameter("page");
+                    int page = (pageParam != null && !pageParam.isEmpty()) ? Integer.parseInt(pageParam) : 0;
+                    int pageSize = parsePageSize(request.getParameter("pageSize"));
+                    int offset = page * pageSize;
+                    String completeQuery = GET_MOVIE_LIST_BY_GENRE + "ORDER BY r.ratings DESC LIMIT " + pageSize + " OFFSET " + offset;
+                    try (PreparedStatement movieQuery = connection.prepareStatement(completeQuery)) {
+                        movieQuery.setInt(1, genreId);
+                        try(ResultSet queryResult = movieQuery.executeQuery()) {
+                            populateMovies(movies, connection, queryResult);
+                        }
+                    }
+                } catch (NumberFormatException e) {
+                    // Invalid genre ID, return empty result
+                }
+            } else {
+                // Existing movie list query with filters
+                String titlePattern = createSearchPattern(request.getParameter("title"));
+                String starPattern = createSearchPattern(request.getParameter("star"));
+                String directorPattern = createSearchPattern(request.getParameter("director"));
+                int year = createYearFilter(request.getParameter("year"));
+                
+                // Handle letter-based filtering for browse by title
+                String letterParam = request.getParameter("letter");
+                if (letterParam != null && !letterParam.equals("All") && letterParam.matches("^[A-Z0-9]$")) {
+                    titlePattern = letterParam + "%";
+                }
+                
+                // Parse page parameter
+                String pageParam = request.getParameter("page");
+                int page = (pageParam != null && !pageParam.isEmpty()) ? Integer.parseInt(pageParam) : 0;
+                int pageSize = parsePageSize(request.getParameter("pageSize"));
+                
+                String sortCriteria = "r.ratings";
+                String sortOrder = "DESC";
+                String completeQuery = buildMovieListQuery(sortCriteria, sortOrder);
+                //noinspection SqlSourceToSinkFlow
+                try (PreparedStatement movieQuery = connection.prepareStatement(completeQuery)) {
+                    setQueryParameters(movieQuery, titlePattern, starPattern, directorPattern, year, page, pageSize);
+                    try(ResultSet queryResult = movieQuery.executeQuery()) {
+                        populateMovies(movies, connection, queryResult);
                     }
                 }
             }
@@ -99,6 +164,21 @@ public class MovieListServlet extends HttpServlet{
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal server error");
         }
         frontendOutput.close();
+    }
+    
+    private void handleGenreList(PrintWriter frontendOutput, Connection connection) throws SQLException {
+        JSONArray genres = new JSONArray();
+        try (PreparedStatement genreQuery = connection.prepareStatement(GET_ALL_GENRES_QUERY)) {
+            try (ResultSet queryResult = genreQuery.executeQuery()) {
+                while (queryResult.next()) {
+                    JSONObject genre = new JSONObject();
+                    insertResult(queryResult, genre);
+                    genres.put(genre);
+                }
+            }
+        }
+        frontendOutput.write(genres.toString());
+        frontendOutput.flush();
     }
 
     /**
@@ -116,7 +196,7 @@ public class MovieListServlet extends HttpServlet{
             case "r.ratings", "m.title", "m.year", "m.director" -> sortCriteria;
             default -> "r.ratings";
         };
-        return GET_MOVIE_LIST + "ORDER BY " + validatedCriteria + " " + validatedOrder + " " + "LIMIT ?";
+        return GET_MOVIE_LIST + "ORDER BY " + validatedCriteria + " " + validatedOrder + " " + "LIMIT ? OFFSET ?";
     }
     /**
      * Sets query parameters for movie list query
@@ -125,15 +205,40 @@ public class MovieListServlet extends HttpServlet{
      * @param starPattern - pattern used by SQL query to find movies with stars of similar names
      * @param directorPattern - pattern used by SQL query to find movies by director name
      * @param year - year to filter movies by (-1 for no filter)
+     * @param page - page number (0-indexed)
      */
-    protected void setQueryParameters(PreparedStatement movieQuery, String titlePattern, String starPattern, String directorPattern, int year) throws SQLException {
+    protected void setQueryParameters(PreparedStatement movieQuery, String titlePattern, String starPattern, String directorPattern, int year, int page, int pageSize) throws SQLException {
         movieQuery.setString(TITLE_SEARCH_IDX, titlePattern);
         movieQuery.setString(STAR_SEARCH_IDX, starPattern);
         movieQuery.setString(STAR_SEARCH_CHECK_IDX, starPattern);
         movieQuery.setString(DIRECTOR_SEARCH_IDX, directorPattern);
         movieQuery.setInt(YEAR_SEARCH_IDX, year);
         movieQuery.setInt(YEAR_SEARCH_CHECK_IDX, year);
-        movieQuery.setInt(DISPLAY_LIMIT_IDX, 20);
+        movieQuery.setInt(DISPLAY_LIMIT_IDX, pageSize);
+        movieQuery.setInt(DISPLAY_OFFSET_IDX, page * pageSize);
+    }
+    
+    /**
+     * Parses and validates the page size parameter
+     * @param pageSizeParam - page size parameter from request
+     * @return valid page size or default if invalid
+     */
+    protected int parsePageSize(String pageSizeParam) {
+        if (pageSizeParam == null || pageSizeParam.trim().isEmpty()) {
+            return DEFAULT_MOVIES_PER_PAGE;
+        }
+        try {
+            int pageSize = Integer.parseInt(pageSizeParam);
+            // Check if page size is in allowed list
+            for (int allowed : ALLOWED_PAGE_SIZES) {
+                if (pageSize == allowed) {
+                    return pageSize;
+                }
+            }
+        } catch (NumberFormatException e) {
+            // Invalid format, return default
+        }
+        return DEFAULT_MOVIES_PER_PAGE;
     }
     
     /**
@@ -159,78 +264,136 @@ public class MovieListServlet extends HttpServlet{
         return Integer.parseInt(yearInput.trim());
     }
     /**
-     * Helper function to populate a movie object with all relevant fields for display on main page
-     * @param movie - movie JSON object to populate
+     * Helper function to populate movies with all relevant fields for display on main page
+     * This optimized version batches all queries to minimize database round trips
+     * @param movies - JSON array to populate
      * @param connection - current database connection
-     * @param queryResult - next result from movie list query
+     * @param movieResults - result set from movie list query
      * @throws SQLException - SQL exception if database communication fails
      */
-    protected void populateMovie(JSONObject movie, Connection connection, ResultSet queryResult) throws SQLException {
-        insertResult(queryResult, movie);
-        String movieId = queryResult.getString("id");
-        insertRatingsInMovie(connection, movie, movieId);
-        insertStarsInMovie(connection, movie, movieId);
-        insertGenresInMovie(connection, movie, movieId);
-    }
-    /**
-     * Inserts ratings information into the current movie object
-     * @param connection - current database connection
-     * @param movie - movie JSON object to insert ratings into
-     * @param movieId - ID of movie to query ratings table for
-     * @throws SQLException - SQL exception if database communication fails
-     */
-    protected void insertRatingsInMovie(Connection connection, JSONObject movie, String movieId) throws SQLException {
-        try (PreparedStatement ratingsStmt = connection.prepareStatement(GET_RATINGS_QUERY)) {
-            ratingsStmt.setString(1, movieId);
+    protected void populateMovies(JSONArray movies, Connection connection, ResultSet movieResults) throws SQLException {
+        // First pass: collect all movie data
+        while (movieResults.next()) {
+            JSONObject movie = new JSONObject();
+            insertResult(movieResults, movie);
+            movies.put(movie);
+        }
+        
+        if (movies.isEmpty()) {
+            return;
+        }
+        
+        // Build IN clause for all movie IDs
+        StringBuilder inClause = new StringBuilder("(");
+        for (int i = 0; i < movies.length(); i++) {
+            if (i > 0) inClause.append(",");
+            inClause.append("?");
+        }
+        inClause.append(")");
+        
+        // Fetch all ratings in one query
+        String ratingsQuery = BATCH_RATINGS_QUERY_TEMPLATE + inClause;
+        try (PreparedStatement ratingsStmt = connection.prepareStatement(ratingsQuery)) {
+            for (int i = 0; i < movies.length(); i++) {
+                JSONObject movie = movies.getJSONObject(i);
+                ratingsStmt.setString(i + 1, movie.getString("id"));
+            }
             try (ResultSet ratingsRs = ratingsStmt.executeQuery()) {
-                if (ratingsRs.next()) {
+                while (ratingsRs.next()) {
+                    String movieId = ratingsRs.getString("movie_id");
                     JSONObject ratings = new JSONObject();
                     insertResult(ratingsRs, ratings);
-                    movie.put("ratings", ratings);
-
+                    // Find and update the corresponding movie
+                    for (int i = 0; i < movies.length(); i++) {
+                        JSONObject movie = movies.getJSONObject(i);
+                        if (movie.getString("id").equals(movieId)) {
+                            movie.put("ratings", ratings);
+                            break;
+                        }
+                    }
                 }
             }
         }
-    }
-    /**
-     * Inserts stars information into the current movie object
-     * @param connection - current database connection
-     * @param movie - movie JSON object to insert ratings into
-     * @param movieId - ID of movie to query ratings table for
-     * @throws SQLException - SQL exception if database communication fails
-     */
-    protected void insertStarsInMovie(Connection connection, JSONObject movie, String movieId) throws SQLException {
-        try (PreparedStatement starsStmt = connection.prepareStatement(GET_STARS_QUERY)) {
-            starsStmt.setString(1, movieId);
+        
+        // Fetch all stars in one query
+        String starsQuery = BATCH_STARS_QUERY_TEMPLATE + inClause + " ORDER BY sm.movie_id, movie_count DESC, s.name ASC";
+        try (PreparedStatement starsStmt = connection.prepareStatement(starsQuery)) {
+            for (int i = 0; i < movies.length(); i++) {
+                JSONObject movie = movies.getJSONObject(i);
+                starsStmt.setString(i + 1, movie.getString("id"));
+            }
             try (ResultSet starsRs = starsStmt.executeQuery()) {
-                JSONArray stars = new JSONArray();
+                String currentMovieId = null;
+                JSONArray currentStars = null;
+                int starCount = 0;
+                
                 while (starsRs.next()) {
-                    JSONObject star = new JSONObject();
-                    insertResult(starsRs, star);
-                    stars.put(star);
+                    String movieId = starsRs.getString("movie_id");
+                    
+                    if (!movieId.equals(currentMovieId)) {
+                        currentMovieId = movieId;
+                        currentStars = null;
+                        starCount = 0;
+                        
+                        // Find the movie and initialize its stars array
+                        for (int i = 0; i < movies.length(); i++) {
+                            JSONObject movie = movies.getJSONObject(i);
+                            if (movie.getString("id").equals(movieId)) {
+                                currentStars = new JSONArray();
+                                movie.put("stars", currentStars);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (currentStars != null && starCount < 3) {
+                        JSONObject star = new JSONObject();
+                        insertResult(starsRs, star);
+                        currentStars.put(star);
+                        starCount++;
+                    }
                 }
-                movie.put("stars", stars);
             }
         }
-    }
-    /**
-     * Inserts genres information into the current movie object
-     * @param connection - current database connection
-     * @param movie - movie JSON object to insert ratings into
-     * @param movieId - ID of movie to query ratings table for
-     * @throws SQLException - SQL exception if database communication fails
-     */
-    protected void insertGenresInMovie(Connection connection, JSONObject movie, String movieId) throws SQLException {
-        try (PreparedStatement genresStmt = connection.prepareStatement(GET_GENRES_QUERY)) {
-            genresStmt.setString(1, movieId);
+        
+        // Fetch all genres in one query
+        String genresQuery = BATCH_GENRES_QUERY_TEMPLATE + inClause + " ORDER BY gm.movie_id, g.name ASC";
+        try (PreparedStatement genresStmt = connection.prepareStatement(genresQuery)) {
+            for (int i = 0; i < movies.length(); i++) {
+                JSONObject movie = movies.getJSONObject(i);
+                genresStmt.setString(i + 1, movie.getString("id"));
+            }
             try (ResultSet genresRs = genresStmt.executeQuery()) {
-                JSONArray genres = new JSONArray();
+                String currentMovieId = null;
+                JSONArray currentGenres = null;
+                int genreCount = 0;
+                
                 while (genresRs.next()) {
-                    JSONObject genre = new JSONObject();
-                    insertResult(genresRs, genre);
-                    genres.put(genre);
+                    String movieId = genresRs.getString("movie_id");
+                    
+                    if (!movieId.equals(currentMovieId)) {
+                        currentMovieId = movieId;
+                        currentGenres = null;
+                        genreCount = 0;
+                        
+                        // Find the movie and initialize its genres array
+                        for (int i = 0; i < movies.length(); i++) {
+                            JSONObject movie = movies.getJSONObject(i);
+                            if (movie.getString("id").equals(movieId)) {
+                                currentGenres = new JSONArray();
+                                movie.put("genres", currentGenres);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (currentGenres != null && genreCount < 3) {
+                        JSONObject genre = new JSONObject();
+                        insertResult(genresRs, genre);
+                        currentGenres.put(genre);
+                        genreCount++;
+                    }
                 }
-                movie.put("genres", genres);
             }
         }
     }
