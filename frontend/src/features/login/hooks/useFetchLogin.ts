@@ -19,7 +19,7 @@ export const useFetchLogin = () : useFetchReturn => {
     const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/login`;
 
     const fetchLogin = async(email: string, password: string) => {
-        const postRequest = { // defines how fetch will send
+        const postRequest: RequestInit = { // defines how fetch will send
             method: 'POST',
             credentials: "include",
             headers: { 'Content-Type': 'application/json' },
