@@ -12,7 +12,7 @@ const PrivateRoutes = () => {
 
     useEffect(() => {
         const validate = async () => {
-            const response = await fetch("http://localhost:8080/fabflix_war_exploded/movies", {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/movies`, {
                 method: "GET",
                 credentials: "include",
             });

@@ -53,7 +53,7 @@ export const useFetchMovieList = () : useFetchReturn => {
         setLoading(true);
         setError(null);
         try{
-            const BASE_URL = 'http://localhost:8080/fabflix_war_exploded/movies';
+            const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/movies`;
             // Build query params
             const params = new URLSearchParams();
             if (titleQuery.trim()) {

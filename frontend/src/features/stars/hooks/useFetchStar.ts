@@ -18,7 +18,7 @@ export const useFetchStar = (starId: string): UseFetchStarReturn => {
     try {
       setLoading(true);
       setError(null);
-      const BASE_URL = 'http://localhost:8080/fabflix_war_exploded/';
+      const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/`;
       const res = await fetch(`${BASE_URL}/star/${starId}`);
       
       if (!res.ok) {
