@@ -41,37 +41,32 @@ public class MovieListServlet extends HttpServlet{
     private static final int DEFAULT_MOVIES_PER_PAGE = 25;
     private static final int[] ALLOWED_PAGE_SIZES = {10, 25, 50, 100};
     
-    public static final String GET_RATINGS_QUERY = """
-            SELECT ratings, vote_count
-            FROM ratings
-            WHERE movie_id = ?
-            """;
-    
-    public static final String GET_STARS_QUERY = """
-            SELECT s.id, s.name, s.birth_year, 
-                   (SELECT COUNT(*) 
-                    FROM stars_in_movies sm2 
-                    WHERE sm2.star_id = s.id) as movie_count
-            FROM stars s
-            INNER JOIN stars_in_movies sm ON s.id = sm.star_id
-            WHERE sm.movie_id = ?
-            ORDER BY movie_count DESC, s.name ASC
-            LIMIT 3
-            """;
-    
-    public static final String GET_GENRES_QUERY = """
-            SELECT g.id, g.name
-            FROM genres g
-            INNER JOIN genres_in_movies gm ON g.id = gm.genre_id
-            WHERE gm.movie_id = ?
-            ORDER BY g.name ASC
-            LIMIT 3
-            """;
-    
     public static final String GET_ALL_GENRES_QUERY = """
             SELECT DISTINCT id, name
             FROM genres
             ORDER BY name ASC
+            """;
+    
+    // Batched query templates for movie list population
+    public static final String BATCH_RATINGS_QUERY_TEMPLATE = """
+            SELECT movie_id, ratings, vote_count
+            FROM ratings
+            WHERE movie_id IN
+            """;
+    
+    public static final String BATCH_STARS_QUERY_TEMPLATE = """
+            SELECT sm.movie_id, s.id, s.name, s.birth_year,
+                   (SELECT COUNT(*) FROM stars_in_movies sm2 WHERE sm2.star_id = s.id) as movie_count
+            FROM stars s
+            INNER JOIN stars_in_movies sm ON s.id = sm.star_id
+            WHERE sm.movie_id IN
+            """;
+    
+    public static final String BATCH_GENRES_QUERY_TEMPLATE = """
+            SELECT gm.movie_id, g.id, g.name
+            FROM genres g
+            INNER JOIN genres_in_movies gm ON g.id = gm.genre_id
+            WHERE gm.movie_id IN
             """;
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
 
@@ -123,11 +118,7 @@ public class MovieListServlet extends HttpServlet{
                     try (PreparedStatement movieQuery = connection.prepareStatement(completeQuery)) {
                         movieQuery.setInt(1, genreId);
                         try(ResultSet queryResult = movieQuery.executeQuery()) {
-                            while (queryResult.next()) {
-                                JSONObject movie = new JSONObject();
-                                populateMovie(movie, connection, queryResult);
-                                movies.put(movie);
-                            }
+                            populateMovies(movies, connection, queryResult);
                         }
                     }
                 } catch (NumberFormatException e) {
@@ -158,12 +149,7 @@ public class MovieListServlet extends HttpServlet{
                 try (PreparedStatement movieQuery = connection.prepareStatement(completeQuery)) {
                     setQueryParameters(movieQuery, titlePattern, starPattern, directorPattern, year, page, pageSize);
                     try(ResultSet queryResult = movieQuery.executeQuery()) {
-                        //ResultSetMetaData queriedMetaData = queryResult.getMetaData();
-                        while (queryResult.next()) {
-                            JSONObject movie = new JSONObject();
-                            populateMovie(movie, connection, queryResult);
-                            movies.put(movie);
-                        }
+                        populateMovies(movies, connection, queryResult);
                     }
                 }
             }
@@ -283,78 +269,136 @@ public class MovieListServlet extends HttpServlet{
         return Integer.parseInt(yearInput.trim());
     }
     /**
-     * Helper function to populate a movie object with all relevant fields for display on main page
-     * @param movie - movie JSON object to populate
+     * Helper function to populate movies with all relevant fields for display on main page
+     * This optimized version batches all queries to minimize database round trips
+     * @param movies - JSON array to populate
      * @param connection - current database connection
-     * @param queryResult - next result from movie list query
+     * @param movieResults - result set from movie list query
      * @throws SQLException - SQL exception if database communication fails
      */
-    protected void populateMovie(JSONObject movie, Connection connection, ResultSet queryResult) throws SQLException {
-        insertResult(queryResult, movie);
-        String movieId = queryResult.getString("id");
-        insertRatingsInMovie(connection, movie, movieId);
-        insertStarsInMovie(connection, movie, movieId);
-        insertGenresInMovie(connection, movie, movieId);
-    }
-    /**
-     * Inserts ratings information into the current movie object
-     * @param connection - current database connection
-     * @param movie - movie JSON object to insert ratings into
-     * @param movieId - ID of movie to query ratings table for
-     * @throws SQLException - SQL exception if database communication fails
-     */
-    protected void insertRatingsInMovie(Connection connection, JSONObject movie, String movieId) throws SQLException {
-        try (PreparedStatement ratingsStmt = connection.prepareStatement(GET_RATINGS_QUERY)) {
-            ratingsStmt.setString(1, movieId);
+    protected void populateMovies(JSONArray movies, Connection connection, ResultSet movieResults) throws SQLException {
+        // First pass: collect all movie data
+        while (movieResults.next()) {
+            JSONObject movie = new JSONObject();
+            insertResult(movieResults, movie);
+            movies.put(movie);
+        }
+        
+        if (movies.isEmpty()) {
+            return;
+        }
+        
+        // Build IN clause for all movie IDs
+        StringBuilder inClause = new StringBuilder("(");
+        for (int i = 0; i < movies.length(); i++) {
+            if (i > 0) inClause.append(",");
+            inClause.append("?");
+        }
+        inClause.append(")");
+        
+        // Fetch all ratings in one query
+        String ratingsQuery = BATCH_RATINGS_QUERY_TEMPLATE + inClause;
+        try (PreparedStatement ratingsStmt = connection.prepareStatement(ratingsQuery)) {
+            for (int i = 0; i < movies.length(); i++) {
+                JSONObject movie = movies.getJSONObject(i);
+                ratingsStmt.setString(i + 1, movie.getString("id"));
+            }
             try (ResultSet ratingsRs = ratingsStmt.executeQuery()) {
-                if (ratingsRs.next()) {
+                while (ratingsRs.next()) {
+                    String movieId = ratingsRs.getString("movie_id");
                     JSONObject ratings = new JSONObject();
                     insertResult(ratingsRs, ratings);
-                    movie.put("ratings", ratings);
-
+                    // Find and update the corresponding movie
+                    for (int i = 0; i < movies.length(); i++) {
+                        JSONObject movie = movies.getJSONObject(i);
+                        if (movie.getString("id").equals(movieId)) {
+                            movie.put("ratings", ratings);
+                            break;
+                        }
+                    }
                 }
             }
         }
-    }
-    /**
-     * Inserts stars information into the current movie object
-     * @param connection - current database connection
-     * @param movie - movie JSON object to insert ratings into
-     * @param movieId - ID of movie to query ratings table for
-     * @throws SQLException - SQL exception if database communication fails
-     */
-    protected void insertStarsInMovie(Connection connection, JSONObject movie, String movieId) throws SQLException {
-        try (PreparedStatement starsStmt = connection.prepareStatement(GET_STARS_QUERY)) {
-            starsStmt.setString(1, movieId);
+        
+        // Fetch all stars in one query
+        String starsQuery = BATCH_STARS_QUERY_TEMPLATE + inClause + " ORDER BY sm.movie_id, movie_count DESC, s.name ASC";
+        try (PreparedStatement starsStmt = connection.prepareStatement(starsQuery)) {
+            for (int i = 0; i < movies.length(); i++) {
+                JSONObject movie = movies.getJSONObject(i);
+                starsStmt.setString(i + 1, movie.getString("id"));
+            }
             try (ResultSet starsRs = starsStmt.executeQuery()) {
-                JSONArray stars = new JSONArray();
+                String currentMovieId = null;
+                JSONArray currentStars = null;
+                int starCount = 0;
+                
                 while (starsRs.next()) {
-                    JSONObject star = new JSONObject();
-                    insertResult(starsRs, star);
-                    stars.put(star);
+                    String movieId = starsRs.getString("movie_id");
+                    
+                    if (!movieId.equals(currentMovieId)) {
+                        currentMovieId = movieId;
+                        currentStars = null;
+                        starCount = 0;
+                        
+                        // Find the movie and initialize its stars array
+                        for (int i = 0; i < movies.length(); i++) {
+                            JSONObject movie = movies.getJSONObject(i);
+                            if (movie.getString("id").equals(movieId)) {
+                                currentStars = new JSONArray();
+                                movie.put("stars", currentStars);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (currentStars != null && starCount < 3) {
+                        JSONObject star = new JSONObject();
+                        insertResult(starsRs, star);
+                        currentStars.put(star);
+                        starCount++;
+                    }
                 }
-                movie.put("stars", stars);
             }
         }
-    }
-    /**
-     * Inserts genres information into the current movie object
-     * @param connection - current database connection
-     * @param movie - movie JSON object to insert ratings into
-     * @param movieId - ID of movie to query ratings table for
-     * @throws SQLException - SQL exception if database communication fails
-     */
-    protected void insertGenresInMovie(Connection connection, JSONObject movie, String movieId) throws SQLException {
-        try (PreparedStatement genresStmt = connection.prepareStatement(GET_GENRES_QUERY)) {
-            genresStmt.setString(1, movieId);
+        
+        // Fetch all genres in one query
+        String genresQuery = BATCH_GENRES_QUERY_TEMPLATE + inClause + " ORDER BY gm.movie_id, g.name ASC";
+        try (PreparedStatement genresStmt = connection.prepareStatement(genresQuery)) {
+            for (int i = 0; i < movies.length(); i++) {
+                JSONObject movie = movies.getJSONObject(i);
+                genresStmt.setString(i + 1, movie.getString("id"));
+            }
             try (ResultSet genresRs = genresStmt.executeQuery()) {
-                JSONArray genres = new JSONArray();
+                String currentMovieId = null;
+                JSONArray currentGenres = null;
+                int genreCount = 0;
+                
                 while (genresRs.next()) {
-                    JSONObject genre = new JSONObject();
-                    insertResult(genresRs, genre);
-                    genres.put(genre);
+                    String movieId = genresRs.getString("movie_id");
+                    
+                    if (!movieId.equals(currentMovieId)) {
+                        currentMovieId = movieId;
+                        currentGenres = null;
+                        genreCount = 0;
+                        
+                        // Find the movie and initialize its genres array
+                        for (int i = 0; i < movies.length(); i++) {
+                            JSONObject movie = movies.getJSONObject(i);
+                            if (movie.getString("id").equals(movieId)) {
+                                currentGenres = new JSONArray();
+                                movie.put("genres", currentGenres);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (currentGenres != null && genreCount < 3) {
+                        JSONObject genre = new JSONObject();
+                        insertResult(genresRs, genre);
+                        currentGenres.put(genre);
+                        genreCount++;
+                    }
                 }
-                movie.put("genres", genres);
             }
         }
     }
