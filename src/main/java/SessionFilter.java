@@ -45,14 +45,15 @@ public class SessionFilter implements Filter {
 
         HttpSession session = servletRequest.getSession(false);
         if (session == null || session.getAttribute("email") == null) {
-            this.servletContext.log("Unauthorized Access Denied");
+            this.servletContext.log("Unauthorized Access Denied - URI: " + servletRequest.getRequestURI() + 
+                ", Session: " + (session != null ? "exists" : "null") + 
+                ", Email: " + (session != null ? session.getAttribute("email") : "no session"));
             servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             servletResponse.setContentType("application/json");
             servletResponse.getWriter().write("{\"error\": \"Unauthorized\"}");
+            return;
         }
-        else{
-            chain.doFilter(request, response);
-        }
+        chain.doFilter(request, response);
     }
 
     private boolean isUrlAllowedWithoutSession(String requestURI) {

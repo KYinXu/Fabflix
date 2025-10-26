@@ -33,8 +33,14 @@ const Navbar: React.FC = () => {
                         </Link>
                     </div>
 
-                    {/* Logout Button */}
-                    <div className="flex items-center">
+                    {/* Cart and Logout Buttons */}
+                    <div className="flex items-center space-x-4">
+                        <Link
+                            to="/cart"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        >
+                            View Cart
+                        </Link>
                         <button
                             onClick={handleLogout}
                             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"

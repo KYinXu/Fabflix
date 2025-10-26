@@ -19,7 +19,9 @@ export const useFetchGenres = (): useFetchGenresReturn => {
             
             try {
                 const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/?action=listGenres`;
-                const response = await fetch(BASE_URL);
+                const response = await fetch(BASE_URL, {
+                    credentials: 'include'
+                });
                 const fetchedData = await response.json();
                 console.log('Genres fetched:', fetchedData);
                 setData(fetchedData);

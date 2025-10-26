@@ -18,8 +18,10 @@ export const useFetchStar = (starId: string): UseFetchStarReturn => {
     try {
       setLoading(true);
       setError(null);
-      const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/`;
-      const res = await fetch(`${BASE_URL}/star/${starId}`);
+      const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}`;
+      const res = await fetch(`${BASE_URL}/star/${starId}`, {
+        credentials: 'include'
+      });
       
       if (!res.ok) {
         //throw new Error(`Failed to fetch star: ${res.status} ${res.statusText}`);

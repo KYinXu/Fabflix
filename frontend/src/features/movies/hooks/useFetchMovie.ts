@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Movie } from "../../../types/types";
+import type { Movie } from "@/types/types";
 
 interface UseFetchReturn {
   data: Movie | null;
@@ -17,8 +17,10 @@ export const useFetchMovie = (movieId: string): UseFetchReturn => {
     try {
       setLoading(true);
       setError(null);
-      const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/`;
-      const res = await fetch(`${BASE_URL}/movie/${movieId}`);
+      const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}`;
+      const res = await fetch(`${BASE_URL}/movie/${movieId}`, {
+        credentials: 'include'
+      });
       
       if (!res.ok) {
         //throw new Error(`Failed to fetch movie: ${res.status} ${res.statusText}`);
