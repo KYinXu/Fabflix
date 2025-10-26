@@ -6,7 +6,7 @@ function AddToCartButton({ movie } : { movie: any }) {
         const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/cart`;
         try{
 
-            const postRequest = { // defines how fetch will send
+            const postRequest: RequestInit = { // defines how fetch will send
                 method: 'POST',
                 credentials: "include",
                 headers: { 'Content-Type': 'application/json' },
