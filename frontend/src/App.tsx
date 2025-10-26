@@ -5,8 +5,6 @@ import Star from './features/stars/star';
 import Login from './features/login/pages/login';
 import ShoppingCart from './features/shopping-cart/pages/shopping_cart';
 import Payment from './features/payment/pages/payment';
-
-
 import { Navigate, Outlet } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
@@ -41,7 +39,7 @@ function App() {
                 <Route path="/star/:id" element={<Star/>}/>
                 <Route path="/cart" element={<ShoppingCart/>}/>
                 <Route path="/payment" element={<Payment/>}/>
-                </Route>
+            </Route>
             <Route path="/login" element={<Login />} />
         </Routes>
       </div>
