@@ -5,6 +5,7 @@ import Star from './features/stars/star';
 import Login from './features/login/pages/login';
 import ShoppingCart from './features/shopping-cart/pages/shopping_cart';
 import Payment from './features/payment/pages/payment';
+import Navbar from './components/Navbar';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
@@ -24,7 +25,12 @@ const PrivateRoutes = () => {
     }, []);
 
     if (authorized === null) return <p>Loading...</p>;
-    return authorized ? <Outlet/> : <Navigate to="/login" />;
+    return authorized ? (
+        <>
+            <Navbar />
+            <Outlet/>
+        </>
+    ) : <Navigate to="/login" />;
 };
 
 
