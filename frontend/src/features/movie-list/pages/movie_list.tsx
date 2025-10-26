@@ -6,6 +6,7 @@ import MovieListGrid from '../components/MovieListGrid';
 import SearchSection from '../components/SearchSection';
 import BrowseSection from '../components/BrowseSection';
 import SortControl from '../components/SortControl';
+import CheckoutButton from "../../../components/CheckoutButton";
 
 const MovieList: React.FC = () => {
     const {data, loading, error, currentPage, hasNextPage, pageSize, sortCriteria, sortOrder, searchMovies, browseMovies, browseByGenre, goToNextPage, goToPreviousPage, setPageSize, setSortCriteria, setSortOrder} = useFetchMovieList(); // create state by calling hook
@@ -151,6 +152,10 @@ const MovieList: React.FC = () => {
                     </h2>
                 </div>
             )}
+
+            <div className="flex justify-end container mx-auto px-4 mb-4">
+                <CheckoutButton />
+            </div>
             
             {data && <MovieListGrid movies={data} />}
             

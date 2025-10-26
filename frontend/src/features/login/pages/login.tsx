@@ -14,10 +14,10 @@ const Login: React.FC = () => {
         }
     }, [data, navigate]);
 
-const handleSubmit = async (event: React.FormEvent) => {
-        event.preventDefault();
-        await fetchLogin(email, password);
-    };
+    const handleSubmit = async (event: React.FormEvent) => {
+            event.preventDefault();
+            await fetchLogin(email, password);
+        };
 
     return (
         <div className="flex justify-center items-center h-screen bg-gray-100">

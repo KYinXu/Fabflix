@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Movie } from '@/types/types';
+import AddToCartButton from "../../../components/AddToCartButton";
 
 interface MovieListItemProps {
     movie: Movie;
@@ -76,6 +77,9 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
                         </div>
                     </div>
                 )}
+            </div>
+            <div className="flex justify-self-start container mx-auto px-4 mb-4">
+                <AddToCartButton movie={movie} />
             </div>
         </div>
     );
