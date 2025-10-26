@@ -3,6 +3,7 @@ import MovieList from './features/movie-list/pages/movie_list';
 import Movie from './features/movies/movie';
 import Star from './features/stars/star';
 import Login from './features/login/pages/login';
+import Navbar from './components/Navbar';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
@@ -22,7 +23,12 @@ const PrivateRoutes = () => {
     }, []);
 
     if (authorized === null) return <p>Loading...</p>;
-    return authorized ? <Outlet/> : <Navigate to="/login" />;
+    return authorized ? (
+        <>
+            <Navbar />
+            <Outlet/>
+        </>
+    ) : <Navigate to="/login" />;
 };
 
 

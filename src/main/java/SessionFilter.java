@@ -8,17 +8,20 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-@WebFilter(filterName = "LoginFilter", urlPatterns = "/*")
-public class LoginFilter implements Filter {
+@WebFilter(filterName = "SessionFilter", urlPatterns = "/*")
+public class SessionFilter implements Filter {
     private ServletContext servletContext;
     private final List<String> allowedURIs = new ArrayList<>();
 
     public void init(FilterConfig fConfig) {
         this.servletContext = fConfig.getServletContext();
-        this.servletContext.log("Login Filter Initialized");
+        this.servletContext.log("Session Filter Initialized");
         allowedURIs.add("/login");
         allowedURIs.add("/api/login");
         allowedURIs.add("/fabflix_war_exploded/login");
+        allowedURIs.add("/logout");
+        allowedURIs.add("/api/logout");
+        allowedURIs.add("/fabflix_war_exploded/logout");
         allowedURIs.add(".css");
         allowedURIs.add(".js");
     }
@@ -35,7 +38,7 @@ public class LoginFilter implements Filter {
             return;
         }
 
-        if (isUrlAllowedWithoutLogin(servletRequest.getRequestURI())) {
+        if (isUrlAllowedWithoutSession(servletRequest.getRequestURI())) {
             chain.doFilter(request, response);
             return;
         }
@@ -46,14 +49,13 @@ public class LoginFilter implements Filter {
             servletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             servletResponse.setContentType("application/json");
             servletResponse.getWriter().write("{\"error\": \"Unauthorized\"}");
-            return;
         }
         else{
             chain.doFilter(request, response);
         }
     }
 
-    private boolean isUrlAllowedWithoutLogin(String requestURI) {
+    private boolean isUrlAllowedWithoutSession(String requestURI) {
         return allowedURIs.stream()
                 .anyMatch(uri -> requestURI.toLowerCase().contains(uri.toLowerCase()));
     }
