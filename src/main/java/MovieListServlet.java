@@ -1,6 +1,8 @@
 import java.sql.*;
 import java.io.IOException;
 import java.io.PrintWriter;
+
+import jakarta.servlet.ServletException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import jakarta.servlet.annotation.WebServlet;
@@ -57,7 +59,6 @@ public class MovieListServlet extends HttpServlet{
         String loginPassword = Parameters.password;
         String loginUrl = "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true";
         // Set response information
-        addCORSHeader(response);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         PrintWriter frontendOutput = response.getWriter(); // Print Writer
@@ -98,12 +99,6 @@ public class MovieListServlet extends HttpServlet{
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal server error");
         }
         frontendOutput.close();
-    }
-
-    private void addCORSHeader(HttpServletResponse response){
-        response.setHeader("Access-Control-Allow-Origin", "*");
-        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        response.setHeader("Access-Control-Allow-Headers", "Content-Type");
     }
 
     /**

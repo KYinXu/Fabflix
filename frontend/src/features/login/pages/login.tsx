@@ -1,12 +1,20 @@
-import React, { useState } from "react";
+import React, {useEffect, useState} from "react";
 import { useFetchLogin } from "../hooks/useFetchLogin";
+import {useNavigate} from "react-router-dom";
 
 const Login: React.FC = () => {
     const { data, loading, error, fetchLogin } = useFetchLogin();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const navigate = useNavigate();
 
-    const handleSubmit = async (event: React.FormEvent) => {
+    useEffect(() => {
+        if (data && data.status === "success"){
+            navigate("/");
+        }
+    }, [data, navigate]);
+
+const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
         await fetchLogin(email, password);
     };

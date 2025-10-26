@@ -19,7 +19,7 @@ export const useFetchMovieList = () : useFetchReturn => {
         setLoading(true);
         setError(null);
         try{
-            const BASE_URL = 'http://localhost:8080/';
+            const BASE_URL = 'http://localhost:8080/fabflix_war_exploded/movies';
             // Build query params
             const params = new URLSearchParams();
             if (titleQuery.trim()) {
@@ -35,8 +35,8 @@ export const useFetchMovieList = () : useFetchReturn => {
                 params.append('year', yearQuery.trim());
             }
             const url = params.toString() ? `${BASE_URL}?${params.toString()}` : BASE_URL;
-            
-            const fetching = await fetch(url)
+
+            const fetching = await fetch(url, {credentials: 'include'})
             const fetchedData = await fetching.json() // converts to JSON
             console.log(fetchedData) // logs JSON data
             setData(fetchedData);

@@ -173,6 +173,8 @@ buildNumber.properties
 # Avoid ignoring Maven wrapper jar file (.jar files are usually ignored)
 !/.mvn/wrapper/maven-wrapper.jar
 
+# Backend environment variables and examples
+Parameters.java
 
 # End of https://www.gitignore.io/api/java,maven,eclipse,java-web,intellij
 

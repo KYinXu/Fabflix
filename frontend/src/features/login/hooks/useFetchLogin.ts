@@ -16,11 +16,12 @@ export const useFetchLogin = () : useFetchReturn => {
     const [data, setData] = useState<loginResponse | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
-    const BASE_URL = 'http://localhost:8080/fabflix_war/login';
+    const BASE_URL = 'http://localhost:8080/fabflix_war_exploded/login';
 
     const fetchLogin = async(email: string, password: string) => {
         const postRequest = { // defines how fetch will send
             method: 'POST',
+            credentials: "include",
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
         };

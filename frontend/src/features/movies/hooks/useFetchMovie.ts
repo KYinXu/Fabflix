@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Movie } from '@/features/movies/types/movie';
+import type { Movie } from "@/features/movies/types/movie";
 
 interface UseFetchReturn {
   data: Movie | null;
@@ -17,7 +17,7 @@ export const useFetchMovie = (movieId: string): UseFetchReturn => {
     try {
       setLoading(true);
       setError(null);
-      const BASE_URL = 'http://localhost:8080';
+      const BASE_URL = 'http://localhost:8080/fabflix_war_exploded/';
       const res = await fetch(`${BASE_URL}/movie/${movieId}`);
       
       if (!res.ok) {

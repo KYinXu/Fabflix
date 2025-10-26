@@ -3,6 +3,7 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -20,7 +21,6 @@ public class LoginServlet extends HttpServlet {
             """;
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        addCORSHeader(response);
 
         String jsonString = buildJSONString(request).toString();
         JSONObject jsonObject = new JSONObject(jsonString);
@@ -44,7 +44,9 @@ public class LoginServlet extends HttpServlet {
         }
 
         if (existenceFlag){
-            createSession(request, email);
+            HttpSession session = request.getSession(true);
+            session.setAttribute("email", email);
+            session.setMaxInactiveInterval(30 * 60);
         }
 
         JSONObject jsonSuccessStatus = buildJSONSuccess(existenceFlag);
@@ -72,12 +74,6 @@ public class LoginServlet extends HttpServlet {
         catch (Exception e){
             throw new RuntimeException(e);
         }
-    }
-
-    private void addCORSHeader(HttpServletResponse response){
-        response.setHeader("Access-Control-Allow-Origin", "*");
-        response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-        response.setHeader("Access-Control-Allow-Headers", "Content-Type");
     }
 
     protected void setMimeType(HttpServletResponse response) {
@@ -108,9 +104,5 @@ public class LoginServlet extends HttpServlet {
         catch (Exception e){
             throw new RuntimeException(e);
         }
-    }
-
-    private void createSession(HttpServletRequest request, String email){
-        request.getSession(true).setAttribute("email", email);
     }
 }
