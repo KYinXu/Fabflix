@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import CheckoutButton from './CheckoutButton';
 
 const Navbar: React.FC = () => {
     const handleLogout = async () => {
@@ -41,25 +42,7 @@ const Navbar: React.FC = () => {
 
                     {/* Cart and Logout Buttons */}
                     <div className="flex items-center space-x-4">
-                        <Link
-                            to="/cart"
-                            className="text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                            style={{ 
-                                backgroundColor: 'var(--theme-primary)',
-                                '--tw-ring-color': 'var(--theme-primary)',
-                                '--tw-ring-offset-color': 'var(--theme-bg-secondary)'
-                            } as React.CSSProperties}
-                            onMouseEnter={(e) => {
-                                const target = e.target as HTMLElement;
-                                target.style.backgroundColor = 'var(--theme-primary-hover)';
-                            }}
-                            onMouseLeave={(e) => {
-                                const target = e.target as HTMLElement;
-                                target.style.backgroundColor = 'var(--theme-primary)';
-                            }}
-                        >
-                            View Cart
-                        </Link>
+                        <CheckoutButton />
                         <button
                             onClick={handleLogout}
                             className="text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
