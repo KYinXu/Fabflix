@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useFetchMovieList } from "../hooks/useFetchMovieList";
 import { useFetchGenres } from "../hooks/useFetchGenres";
 import { useSessionState } from "@/hooks/useSessionState";
+import { CurrentState, createSearchState, createLetterBrowseState, createGenreBrowseState, createSortState, createPageSizeState, createBrowseTypeState } from '@/types/session';
 import MovieListGrid from '../components/MovieListGrid';
 import SearchSection from '../components/SearchSection';
 import BrowseSection from '../components/BrowseSection';
@@ -17,9 +18,19 @@ const MovieList: React.FC = () => {
     const [browseType, setBrowseType] = useState<'title' | 'genre'>('title');
     const [selectedLetter, setSelectedLetter] = useState<string>('All');
     const [selectedGenreId, setSelectedGenreId] = useState<number | null>(null);
-    const [hasInitialized, setHasInitialized] = useState(false);
-    const [lastSearchMethod, setLastSearchMethod] = useState<'browse' | 'search'>('browse');
     const hasLoadedRef = useRef(false);
+    
+    // Helper function to get current state
+    const getCurrentState = (): CurrentState => ({
+        browseType,
+        selectedLetter,
+        selectedGenreId,
+        searchValues,
+        sortCriteria,
+        sortOrder,
+        pageSize,
+        currentPage
+    });
     const [searchValues, setSearchValues] = useState({
         movieQuery: '',
         starQuery: '',
@@ -32,27 +43,21 @@ const MovieList: React.FC = () => {
         const loadSessionState = async () => {
             if (!hasLoadedRef.current) {
                 hasLoadedRef.current = true;
-                console.log(`[${new Date().toISOString()}] Starting session loading...`);
                 const sessionState = await loadState();
-                console.log(`[${new Date().toISOString()}] Session loading completed, state:`, sessionState);
                 if (sessionState) {
-                    console.log('Loaded session state:', sessionState);
                     // Restore browse type and selections
                     setBrowseType(sessionState.browseType);
                     setSelectedLetter(sessionState.selectedLetter);
                     setSelectedGenreId(sessionState.selectedGenreId);
                     setSearchValues(sessionState.searchState);
-                    setLastSearchMethod(sessionState.lastSearchMethod || 'browse');
                     
                     // Note: Sort settings and page size will be restored by the actual query functions
                     // to avoid triggering multiple fetchMovie calls
                     
-                    // Apply the restored state based on lastSearchMethod
-                    if (sessionState.lastSearchMethod === 'search' && 
-                        (sessionState.searchState.movieQuery || sessionState.searchState.starQuery || 
-                         sessionState.searchState.directorQuery || sessionState.searchState.yearQuery)) {
+                    // Apply the restored state based on search state
+                    if (sessionState.searchState.movieQuery || sessionState.searchState.starQuery || 
+                        sessionState.searchState.directorQuery || sessionState.searchState.yearQuery) {
                         // Restore search results
-                        console.log(`[${new Date().toISOString()}] Restoring search results:`, sessionState.searchState);
                         searchMovies(
                             sessionState.searchState.movieQuery,
                             sessionState.searchState.starQuery,
@@ -61,15 +66,12 @@ const MovieList: React.FC = () => {
                         );
                     } else if (sessionState.browseType === 'genre' && sessionState.selectedGenreId) {
                         // Restore genre browse
-                        console.log(`[${new Date().toISOString()}] Restoring genre browse:`, sessionState.selectedGenreId);
                         browseByGenre(sessionState.selectedGenreId);
                     } else if (sessionState.browseType === 'title' && sessionState.selectedLetter && sessionState.selectedLetter !== 'All') {
                         // Restore title browse (only if not 'All')
-                        console.log(`[${new Date().toISOString()}] Restoring title browse:`, sessionState.selectedLetter);
                         browseMovies(sessionState.selectedLetter);
                     } else if (sessionState.browseType === 'title' && sessionState.selectedLetter === 'All') {
                         // Default browse all movies
-                        console.log(`[${new Date().toISOString()}] Restoring browse all movies`);
                         browseMovies('All');
                     }
                 } else {
@@ -85,11 +87,9 @@ const MovieList: React.FC = () => {
                         }
                     } else {
                         // No session state and no URL params - load default movies
-                        console.log('No session state, loading default movies');
                         browseMovies('All');
                     }
                 }
-                setHasInitialized(true);
             }
         };
         
@@ -101,24 +101,12 @@ const MovieList: React.FC = () => {
         searchMovies(movieQuery, starQuery, directorQuery, yearQuery);
         setSelectedLetter('All');
         setSelectedGenreId(null);
-        setLastSearchMethod('search');
         
         // Update search values and save to session
         const newSearchValues = { movieQuery, starQuery, directorQuery, yearQuery };
         setSearchValues(newSearchValues);
         
-        const stateToSave = {
-            browseType: 'title',
-            selectedLetter: 'All',
-            selectedGenreId: null,
-            searchState: newSearchValues,
-            lastSearchMethod: 'search',
-            sortCriteria,
-            sortOrder,
-            pageSize,
-            currentPage
-        };
-        console.log('Saving search state:', stateToSave);
+        const stateToSave = createSearchState(getCurrentState(), newSearchValues);
         await saveState(stateToSave);
     };
 
@@ -129,19 +117,8 @@ const MovieList: React.FC = () => {
         setBrowseType('title');
         setSelectedLetter(letter);
         setSelectedGenreId(null);
-        setLastSearchMethod('browse');
         
-        await saveState({
-            browseType: 'title',
-            selectedLetter: letter,
-            selectedGenreId: null,
-            searchState: searchValues,
-            lastSearchMethod: 'browse',
-            sortCriteria,
-            sortOrder,
-            pageSize,
-            currentPage
-        });
+        await saveState(createLetterBrowseState(getCurrentState(), letter));
     };
 
     const handleGenreChange = async (genreId: number) => {
@@ -150,52 +127,21 @@ const MovieList: React.FC = () => {
         setBrowseType('genre');
         setSelectedGenreId(genreId);
         setSelectedLetter('');
-        setLastSearchMethod('browse');
         
-        await saveState({
-            browseType: 'genre',
-            selectedLetter: '',
-            selectedGenreId: genreId,
-            searchState: searchValues,
-            lastSearchMethod: 'browse',
-            sortCriteria,
-            sortOrder,
-            pageSize,
-            currentPage
-        });
+        await saveState(createGenreBrowseState(getCurrentState(), genreId));
     };
 
     const handleSortChange = async (newSortCriteria: string, newSortOrder: string) => {
         setSortCriteria(newSortCriteria);
         setSortOrder(newSortOrder);
         
-        await saveState({
-            browseType,
-            selectedLetter,
-            selectedGenreId,
-            searchState: searchValues,
-            lastSearchMethod,
-            sortCriteria: newSortCriteria,
-            sortOrder: newSortOrder,
-            pageSize,
-            currentPage
-        });
+        await saveState(createSortState(getCurrentState(), newSortCriteria, newSortOrder));
     };
 
     const handlePageSizeChange = async (newPageSize: number) => {
         setPageSize(newPageSize);
         
-        await saveState({
-            browseType,
-            selectedLetter,
-            selectedGenreId,
-            searchState: searchValues,
-            lastSearchMethod,
-            sortCriteria,
-            sortOrder,
-            pageSize: newPageSize,
-            currentPage
-        });
+        await saveState(createPageSizeState(getCurrentState(), newPageSize));
     };
 
     const handleBrowseTypeChange = async (type: 'title' | 'genre') => {
@@ -208,17 +154,7 @@ const MovieList: React.FC = () => {
             setSelectedGenreId(null);
         }
         
-        await saveState({
-            browseType: type,
-            selectedLetter: type === 'title' ? 'All' : '',
-            selectedGenreId: null,
-            searchState: searchValues,
-            lastSearchMethod: 'browse',
-            sortCriteria,
-            sortOrder,
-            pageSize,
-            currentPage
-        });
+        await saveState(createBrowseTypeState(getCurrentState(), type));
     };
 
 
@@ -325,11 +261,11 @@ const MovieList: React.FC = () => {
             </div>
             
             {/* Display current filter */}
-            {(selectedLetter || selectedGenreId !== null || (lastSearchMethod === 'search' && (searchValues.movieQuery || searchValues.starQuery || searchValues.directorQuery || searchValues.yearQuery))) && 
+            {(selectedLetter || selectedGenreId !== null || (searchValues.movieQuery || searchValues.starQuery || searchValues.directorQuery || searchValues.yearQuery)) && 
              !(browseType === 'title' && selectedLetter === 'All') && (
                 <div className="container mx-auto px-4 mb-6">
                     <h2 className="text-4xl font-bold text-center" style={{ color: 'var(--theme-text-primary)' }}>
-                        {lastSearchMethod === 'search' && (searchValues.movieQuery || searchValues.starQuery || searchValues.directorQuery || searchValues.yearQuery) ? (
+                        {(searchValues.movieQuery || searchValues.starQuery || searchValues.directorQuery || searchValues.yearQuery) ? (
                             <>Search results</>
                         ) : (
                             <>

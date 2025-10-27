@@ -37,7 +37,6 @@ public class SessionStateServlet extends HttpServlet {
         session.setAttribute("selectedLetter", jsonObject.getString("selectedLetter"));
         session.setAttribute("selectedGenreId", jsonObject.optInt("selectedGenreId", -1));
         session.setAttribute("searchState", jsonObject.getJSONObject("searchState").toString());
-        session.setAttribute("lastSearchMethod", jsonObject.optString("lastSearchMethod", "browse"));
         session.setAttribute("sortCriteria", jsonObject.optString("sortCriteria", "r.ratings"));
         session.setAttribute("sortOrder", jsonObject.optString("sortOrder", "DESC"));
         session.setAttribute("pageSize", jsonObject.optInt("pageSize", 25));
@@ -80,7 +79,6 @@ public class SessionStateServlet extends HttpServlet {
         } else {
             state.put("searchState", new JSONObject());
         }
-        state.put("lastSearchMethod", session.getAttribute("lastSearchMethod"));
 
         state.put("sortCriteria", session.getAttribute("sortCriteria"));
         state.put("sortOrder", session.getAttribute("sortOrder"));

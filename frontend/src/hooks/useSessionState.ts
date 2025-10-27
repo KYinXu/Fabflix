@@ -1,23 +1,5 @@
 import { useState } from 'react';
-
-interface SearchState {
-    movieQuery: string;
-    starQuery: string;
-    directorQuery: string;
-    yearQuery: string;
-}
-
-interface SessionState {
-    browseType: 'title' | 'genre';
-    selectedLetter: string;
-    selectedGenreId: number | null;
-    searchState: SearchState;
-    lastSearchMethod: 'browse' | 'search';
-    sortCriteria: string;
-    sortOrder: string;
-    pageSize: number;
-    currentPage: number;
-}
+import { SessionState } from '@/types/session';
 
 interface UseSessionStateReturn {
     saveState: (state: SessionState) => Promise<void>;

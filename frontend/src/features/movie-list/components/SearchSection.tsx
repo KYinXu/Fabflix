@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import SearchBar from './SearchBar';
 import YearDropdown from './YearDropdown';
+import { SearchState } from '@/types/session';
 
 interface SearchSectionProps {
     onSearch: (movieQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => void;
-    initialValues?: {
-        movieQuery: string;
-        starQuery: string;
-        directorQuery: string;
-        yearQuery: string;
-    };
+    initialValues?: SearchState;
 }
 
 const SearchSection: React.FC<SearchSectionProps> = ({ onSearch, initialValues }) => {
