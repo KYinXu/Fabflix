@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Genre } from "@/types/types";
 
 interface BrowseSectionProps {
@@ -6,20 +6,52 @@ interface BrowseSectionProps {
     onLetterChange: (letter: string) => void;
     onGenreChange: (genreId: number) => void;
     genres?: Genre[] | null;
+    initialBrowseType?: 'title' | 'genre';
+    initialSelectedLetter?: string;
+    initialSelectedGenreId?: number | null;
 }
 
-const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLetterChange, onGenreChange, genres }) => {
-    const [activeTab, setActiveTab] = useState<'title' | 'genre'>('title');
-    const [selectedLetter, setSelectedLetter] = useState<string>('All');
+const BrowseSection: React.FC<BrowseSectionProps> = ({ 
+    onBrowseTypeChange, 
+    onLetterChange, 
+    onGenreChange, 
+    genres,
+    initialBrowseType,
+    initialSelectedLetter,
+    initialSelectedGenreId
+}) => {
+    const [activeTab, setActiveTab] = useState<'title' | 'genre'>(initialBrowseType || 'title');
+    const [selectedLetter, setSelectedLetter] = useState<string>(initialSelectedLetter || 'All');
+    const [selectedGenreId, setSelectedGenreId] = useState<number | null>(initialSelectedGenreId || null);
+
+    // Sync internal state with props when they change
+    useEffect(() => {
+        if (initialBrowseType) {
+            setActiveTab(initialBrowseType);
+        }
+    }, [initialBrowseType]);
+
+    useEffect(() => {
+        if (initialSelectedLetter) {
+            setSelectedLetter(initialSelectedLetter);
+        }
+    }, [initialSelectedLetter]);
+
+    useEffect(() => {
+        if (initialSelectedGenreId !== undefined) {
+            setSelectedGenreId(initialSelectedGenreId);
+        }
+    }, [initialSelectedGenreId]);
 
     const handleTabChange = (tab: 'title' | 'genre') => {
         setActiveTab(tab);
         if (tab === 'title') {
             setSelectedLetter('All');
+            setSelectedGenreId(null);
             onLetterChange('All');
         } else {
-            setSelectedLetter('A');
-            onLetterChange('A');
+            setSelectedLetter('');
+            setSelectedGenreId(null);
         }
         onBrowseTypeChange(tab);
     };
@@ -30,6 +62,7 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
     };
 
     const handleGenreClick = (genreId: number) => {
+        setSelectedGenreId(genreId);
         onGenreChange(genreId);
     };
 
@@ -154,17 +187,28 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
                                     <button
                                         key={genre.id}
                                         onClick={() => handleGenreClick(genre.id)}
-                                        className="px-4 py-2 text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-200 hover:scale-105"
+                                        className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
+                                            selectedGenreId === genre.id
+                                                ? 'text-white shadow-lg scale-110'
+                                                : 'hover:shadow-lg hover:scale-105'
+                                        }`}
                                         style={{
-                                            background: 'linear-gradient(to right, var(--theme-primary), var(--theme-secondary), var(--theme-accent))'
+                                            background: selectedGenreId === genre.id 
+                                                ? 'linear-gradient(to right, var(--theme-primary-hover), var(--theme-secondary-hover), var(--theme-accent-hover))'
+                                                : 'linear-gradient(to right, var(--theme-primary), var(--theme-secondary), var(--theme-accent))',
+                                            color: 'white'
                                         }}
                                         onMouseEnter={(e) => {
-                                            const target = e.target as HTMLElement;
-                                            target.style.background = 'linear-gradient(to right, var(--theme-primary-hover), var(--theme-secondary-hover), var(--theme-accent-hover))';
+                                            if (selectedGenreId !== genre.id) {
+                                                const target = e.target as HTMLElement;
+                                                target.style.background = 'linear-gradient(to right, var(--theme-primary-hover), var(--theme-secondary-hover), var(--theme-accent-hover))';
+                                            }
                                         }}
                                         onMouseLeave={(e) => {
-                                            const target = e.target as HTMLElement;
-                                            target.style.background = 'linear-gradient(to right, var(--theme-primary), var(--theme-secondary), var(--theme-accent))';
+                                            if (selectedGenreId !== genre.id) {
+                                                const target = e.target as HTMLElement;
+                                                target.style.background = 'linear-gradient(to right, var(--theme-primary), var(--theme-secondary), var(--theme-accent))';
+                                            }
                                         }}
                                     >
                                         {genre.name}

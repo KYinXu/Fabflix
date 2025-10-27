@@ -4,13 +4,19 @@ import YearDropdown from './YearDropdown';
 
 interface SearchSectionProps {
     onSearch: (movieQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => void;
+    initialValues?: {
+        movieQuery: string;
+        starQuery: string;
+        directorQuery: string;
+        yearQuery: string;
+    };
 }
 
-const SearchSection: React.FC<SearchSectionProps> = ({ onSearch }) => {
-    const [movieSearch, setMovieSearch] = useState('');
-    const [starSearch, setStarSearch] = useState('');
-    const [directorSearch, setDirectorSearch] = useState('');
-    const [yearSearch, setYearSearch] = useState('');
+const SearchSection: React.FC<SearchSectionProps> = ({ onSearch, initialValues }) => {
+    const [movieSearch, setMovieSearch] = useState(initialValues?.movieQuery || '');
+    const [starSearch, setStarSearch] = useState(initialValues?.starQuery || '');
+    const [directorSearch, setDirectorSearch] = useState(initialValues?.directorQuery || '');
+    const [yearSearch, setYearSearch] = useState(initialValues?.yearQuery || '');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
