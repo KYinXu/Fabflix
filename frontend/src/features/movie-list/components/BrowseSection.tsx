@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import type { Genre } from "@/types/types";
 
 interface BrowseSectionProps {
-    onBrowseTypeChange: (type: 'title' | 'genre') => void;
     onLetterChange: (letter: string) => void;
     onGenreChange: (genreId: number) => void;
     genres?: Genre[] | null;

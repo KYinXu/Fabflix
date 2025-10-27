@@ -158,23 +158,22 @@ const MovieList: React.FC = () => {
     };
 
     const handleGenreChange = async (genreId: number) => {
-        // Only trigger browse if we're on the genre tab
-        if (browseType === 'genre') {
-            browseByGenre(genreId);
-            setSelectedGenreId(genreId);
-            setSelectedLetter('');
-            
-            await saveState({
-                browseType,
-                selectedLetter: '',
-                selectedGenreId: genreId,
-                searchState: searchValues,
-                sortCriteria,
-                sortOrder,
-                pageSize,
-                currentPage
-            });
-        }
+        // Always trigger browse when genre is clicked
+        browseByGenre(genreId);
+        setBrowseType('genre');
+        setSelectedGenreId(genreId);
+        setSelectedLetter('');
+        
+        await saveState({
+            browseType: 'genre',
+            selectedLetter: '',
+            selectedGenreId: genreId,
+            searchState: searchValues,
+            sortCriteria,
+            sortOrder,
+            pageSize,
+            currentPage
+        });
     };
 
     const handleSortChange = async (newSortCriteria: string, newSortOrder: string) => {
@@ -226,7 +225,6 @@ const MovieList: React.FC = () => {
                 <SearchSection onSearch={handleSearch} initialValues={searchValues} />
                 
                 <BrowseSection 
-                    onBrowseTypeChange={handleBrowseTypeChange}
                     onLetterChange={handleLetterChange}
                     onGenreChange={handleGenreChange}
                     genres={genres}
@@ -278,7 +276,6 @@ const MovieList: React.FC = () => {
             <SearchSection onSearch={handleSearch} initialValues={searchValues} />
             
             <BrowseSection 
-                onBrowseTypeChange={handleBrowseTypeChange}
                 onLetterChange={handleLetterChange}
                 onGenreChange={handleGenreChange}
                 genres={genres}
