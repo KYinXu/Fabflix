@@ -36,17 +36,21 @@ export const useFetchPayment = () : useFetchReturn => {
             const response = await fetch(BASE_URL, postRequest);
             console.log("PR: ", response);
 
-            if (!response.ok) throw new Error(`Server error: ${response.status}`);
-
             console.log("POST received by backend");
 
             const jsonResponse = await response.json();
             console.log("JSON Response:", jsonResponse);
 
-            setData(jsonResponse);
+            // Check if payment failed
+            if (jsonResponse.status === "failure") {
+                setError("Invalid payment credentials. Please check your information and try again.");
+                setData(jsonResponse);
+            } else {
+                setData(jsonResponse);
+            }
         } catch (err: any) {
-            console.error("Login error:", err);
-            setError(err.message || "Unexpected error");
+            console.error("Payment error:", err);
+            setError(err.message || "An unexpected error occurred. Please try again.");
         } finally {
             setLoading(false);
         }

@@ -39,34 +39,37 @@ const ShoppingCart: React.FC = () => {
         await fetchShoppingCart();
     };
 
-    if (loading) return <p>Loading...</p>;
-    if (error) return <p>Error: {error}</p>;
+    if (loading) return <p style={{ color: 'var(--theme-text-primary)' }}>Loading...</p>;
+    if (error) return <p style={{ color: 'var(--theme-error)' }}>Error: {error}</p>;
 
 
     return (
-        <div className="flex flex-col items-center min-h-screen bg-white p-8">
-            <h1 className="text-2xl font-semibold mb-10">Cart</h1>
+        <div className="flex flex-col items-center min-h-screen p-8" style={{ backgroundColor: 'var(--theme-bg-primary)' }}>
+            <h1 className="text-2xl font-semibold mb-10" style={{ color: 'var(--theme-text-primary)' }}>Cart</h1>
 
             <div className="w-full max-w-md space-y-4">
                 {cart.map((item, index) => (
                     <div
                         key={index}
-                        className="flex justify-between items-center bg-gray-200 px-6 py-4 rounded-xl"
+                        className="flex justify-between items-center px-6 py-4 rounded-xl"
+                        style={{ backgroundColor: 'var(--theme-bg-secondary)' }}
                     >
-                        <div className="text-lg">{item.title}</div>
+                        <div className="text-lg" style={{ color: 'var(--theme-text-primary)' }}>{item.title}</div>
                         <div className="flex items-center gap-6">
-                            <div className="text-gray-800">${item.price.toFixed(2)}</div>
-                            <div className="flex items-center text-gray-600 space-x-2">
+                            <div style={{ color: 'var(--theme-text-secondary)' }}>${item.price.toFixed(2)}</div>
+                            <div className="flex items-center space-x-2">
                                 <button
                                     onClick={() => handleQuantityChange(item.movieId, item.quantity - 1)}
                                     className="text-lg font-bold hover:text-black"
+                                    style={{ color: 'var(--theme-text-primary)' }}
                                 >
                                     −
                                 </button>
-                                <span>x{item.quantity}</span>
+                                <span style={{ color: 'var(--theme-text-primary)' }}>x{item.quantity}</span>
                                 <button
                                     onClick={() => handleQuantityChange(item.movieId, item.quantity + 1)}
                                     className="text-lg font-bold hover:text-black"
+                                    style={{ color: 'var(--theme-text-primary)' }}
                                 >
                                     +
                                 </button>
@@ -74,6 +77,7 @@ const ShoppingCart: React.FC = () => {
                                 <button
                                     onClick={() => handleRemoveItem(item.movieId)}
                                     className="text-red-500 hover:text-red-700 ml-4"
+                                    style={{ color: 'var(--theme-error)' }}
                                 >
                                     🗑
                                 </button>
@@ -83,20 +87,33 @@ const ShoppingCart: React.FC = () => {
                 ))}
             </div>
 
-            <div className="w-full max-w-md flex justify-between items-center mt-8 text-lg">
+            <div className="w-full max-w-md flex justify-between items-center mt-8 text-lg" style={{ color: 'var(--theme-text-primary)' }}>
                 <p>Total:</p>
-                <p className="font-semibold">${total.toFixed(2)}</p>
+                <p className="font-semibold" style={{ color: 'var(--theme-text-primary)' }}>${total.toFixed(2)}</p>
             </div>
 
             <button
                 onClick={handleProceed}
-                className="mt-6 px-6 py-3 bg-gray-200 rounded-xl hover:bg-gray-300 transition text-lg"
+                className="mt-6 px-6 py-3 rounded-xl transition text-lg"
+                style={{
+                    backgroundColor: 'var(--theme-secondary)',
+                    color: 'white',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+                }}
+                onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.25)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                }}
             >
                 Proceed to Payment &gt;
             </button>
 
-            {updateLoading && <p className="mt-4 text-gray-500">Updating cart...</p>}
-            {updateError && <p className="mt-4 text-red-500">Error: {updateError}</p>}
+            {updateLoading && <p className="mt-4" style={{ color: 'var(--theme-text-secondary)' }}>Updating cart...</p>}
+            {updateError && <p className="mt-4" style={{ color: 'var(--theme-error)' }}>Error: {updateError}</p>}
         </div>
     );
 };
