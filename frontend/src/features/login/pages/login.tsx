@@ -20,44 +20,64 @@ const Login: React.FC = () => {
         };
 
     return (
-        <div className="flex justify-center items-center h-screen bg-gray-100">
-            <div className="bg-white p-8 rounded-xl shadow-md w-96">
-                <h1 className="text-2xl font-bold text-center mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-transparent bg-clip-text">
+        <div className="flex justify-center items-center h-screen" style={{ backgroundColor: 'var(--theme-bg-primary)' }}>
+            <div className="p-8 rounded-xl shadow-md w-96 border" style={{ backgroundColor: 'var(--theme-bg-card)', borderColor: 'var(--theme-border-secondary)' }}>
+                <h1 className="text-2xl font-bold text-center mb-6" style={{ 
+                    background: 'linear-gradient(to right, var(--theme-primary-light), var(--theme-secondary-light), var(--theme-accent-light))',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                }}>
                     Fabflix Login
                 </h1>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-gray-700">Email</label>
+                        <label className="block" style={{ color: 'var(--theme-text-dark)' }}>Email</label>
                         <input
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full p-2 rounded-lg focus:outline-none focus:ring-2"
+                            style={{ 
+                                borderColor: 'var(--theme-border-secondary)',
+                                backgroundColor: 'var(--theme-bg-card)',
+                                color: 'var(--theme-text-dark)',
+                                '--tw-ring-color': 'var(--theme-primary)'
+                            } as React.CSSProperties}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-gray-700">Password</label>
+                        <label className="block" style={{ color: 'var(--theme-text-dark)' }}>Password</label>
                         <input
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full border border-gray-300 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full p-2 rounded-lg focus:outline-none focus:ring-2"
+                            style={{ 
+                                borderColor: 'var(--theme-border-secondary)',
+                                backgroundColor: 'var(--theme-bg-card)',
+                                color: 'var(--theme-text-dark)',
+                                '--tw-ring-color': 'var(--theme-primary)'
+                            } as React.CSSProperties}
                         />
                     </div>
 
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-200"
+                        className="w-full text-white py-2 rounded-lg transition duration-200"
+                        style={{ backgroundColor: 'var(--theme-primary)' }}
+                        onMouseEnter={(e) => !loading && ((e.target as HTMLElement).style.backgroundColor = 'var(--theme-primary-hover)')}
+                        onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = 'var(--theme-primary)'}
                     >
                         {loading ? "Logging in..." : "Login"}
                     </button>
                 </form>
 
-                {error && <p className="text-red-500 text-center mt-4">{error}</p>}
+                {error && <p className="text-center mt-4" style={{ color: 'var(--theme-error)' }}>{error}</p>}
                 {data && data.status === "success" && (
-                    <p className="text-green-600 text-center mt-4">Login Successful!</p>
+                    <p className="text-center mt-4" style={{ color: 'var(--theme-success)' }}>Login Successful!</p>
                 )}
             </div>
         </div>

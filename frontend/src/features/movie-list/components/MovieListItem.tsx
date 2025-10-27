@@ -21,10 +21,14 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
     return (
         <div
             onClick={handleCardClick}
-            className="p-6 border-2 border-gray-200 rounded-lg shadow-md hover:shadow-2xl hover:border-blue-500 hover:scale-105 transition-all duration-300 cursor-pointer block bg-white"
+            className="p-6 border-2 rounded hover:border-blue-500 transition-colors duration-300 cursor-pointer block"
+            style={{ 
+                backgroundColor: 'var(--theme-bg-secondary)',
+                borderColor: 'var(--theme-border-primary)'
+            }}
         >
             <div className="flex justify-between items-start mb-3">
-                <h2 className="text-2xl font-bold text-gray-800 line-clamp-2 flex-1">
+                <h2 className="text-2xl font-bold line-clamp-2 flex-1" style={{ color: 'var(--theme-text-primary)' }}>
                     {movie.title}
                 </h2>
                 {movie.ratings && (
@@ -35,19 +39,19 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
                 )}
             </div>
             
-            <div className="space-y-3 text-gray-600">
+            <div className="space-y-3" style={{ color: 'var(--theme-text-secondary)' }}>
                 <p className="flex items-center">
-                    <span className="font-semibold text-gray-700 mr-2">Year:</span>
+                    <span className="font-semibold mr-2" style={{ color: 'var(--theme-text-primary)' }}>Year:</span>
                     <span>{movie.year}</span>
                 </p>
                 <p className="flex items-center">
-                    <span className="font-semibold text-gray-700 mr-2">Director:</span>
+                    <span className="font-semibold mr-2" style={{ color: 'var(--theme-text-primary)' }}>Director:</span>
                     <span className="truncate">{movie.director}</span>
                 </p>
                 
                 {movie.genres && movie.genres.length > 0 && (
                     <div>
-                        <span className="font-semibold text-gray-700 block mb-1">Genres:</span>
+                        <span className="font-semibold block mb-1" style={{ color: 'var(--theme-text-primary)' }}>Genres:</span>
                         <div className="flex flex-wrap gap-2">
                             {movie.genres.map((genre) => (
                                 <span
@@ -63,7 +67,7 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
                 
                 {movie.stars && movie.stars.length > 0 && (
                     <div>
-                        <span className="font-semibold text-gray-700 block mb-2">Stars:</span>
+                        <span className="font-semibold block mb-2" style={{ color: 'var(--theme-text-primary)' }}>Stars:</span>
                         <div className="flex flex-wrap gap-2">
                             {movie.stars.map((star) => (
                                 <Link

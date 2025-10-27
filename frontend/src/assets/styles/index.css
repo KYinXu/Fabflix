@@ -1,3 +1,52 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Global Theme Colors */
+:root {
+  /* Primary Colors */
+  --theme-primary: #3b82f6; /* blue-500 */
+  --theme-primary-hover: #2563eb; /* blue-600 */
+  --theme-primary-light: #60a5fa; /* blue-400 */
+  
+  /* Secondary Colors */
+  --theme-secondary: #8b5cf6; /* violet-500 */
+  --theme-secondary-hover: #7c3aed; /* violet-600 */
+  --theme-secondary-light: #a78bfa; /* violet-400 */
+  
+  /* Accent Colors */
+  --theme-accent: #ec4899; /* pink-500 */
+  --theme-accent-hover: #db2777; /* pink-600 */
+  --theme-accent-light: #f472b6; /* pink-400 */
+  
+  /* Background Colors */
+  --theme-bg-primary: #111827; /* gray-900 */
+  --theme-bg-secondary: #1f2937; /* gray-800 */
+  --theme-bg-tertiary: #374151; /* gray-700 */
+  --theme-bg-card: #ffffff; /* white */
+  
+  /* Text Colors */
+  --theme-text-primary: #ffffff; /* white */
+  --theme-text-secondary: #d1d5db; /* gray-300 */
+  --theme-text-muted: #9ca3af; /* gray-400 */
+  --theme-text-dark: #111827; /* gray-900 */
+  
+  /* Border Colors */
+  --theme-border-primary: #374151; /* gray-700 */
+  --theme-border-secondary: #e5e7eb; /* gray-200 */
+  
+  /* Status Colors */
+  --theme-success: #10b981; /* emerald-500 */
+  --theme-error: #ef4444; /* red-500 */
+  --theme-warning: #f59e0b; /* amber-500 */
+}
+
+/* Dark background */
+body {
+  background-color: var(--theme-bg-primary);
+}
+
+/* Prevent layout shift from scrollbar appearing/disappearing */
+html {
+  overflow-y: scroll;
+}

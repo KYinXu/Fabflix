@@ -18,7 +18,13 @@ const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, placeholder, foc
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className={`w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-all ${focusClasses}`}
+            className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 transition-all ${focusClasses}`}
+            style={{
+                borderColor: 'var(--theme-border-primary)',
+                backgroundColor: 'var(--theme-bg-secondary)',
+                color: 'var(--theme-text-primary)',
+                '--tw-ring-color': focusColor === 'blue' ? 'var(--theme-primary)' : 'var(--theme-secondary)'
+            } as React.CSSProperties}
         />
     );
 };

@@ -42,14 +42,18 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
             <div className="max-w-7xl mx-auto">
                 {/* Tabs */}
                 <div className="flex justify-center mb-6">
-                    <div className="inline-flex bg-gray-100 rounded-lg p-1">
+                    <div className="inline-flex rounded-lg p-1" style={{ backgroundColor: 'var(--theme-bg-tertiary)' }}>
                         <button
                             onClick={() => handleTabChange('title')}
                             className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
                                 activeTab === 'title'
-                                    ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white shadow-lg'
-                                    : 'text-gray-600 hover:bg-gray-200'
+                                    ? 'text-white shadow-lg'
+                                    : 'hover:opacity-80'
                             }`}
+                            style={{
+                                backgroundColor: activeTab === 'title' ? 'var(--theme-primary)' : 'transparent',
+                                color: activeTab === 'title' ? 'var(--theme-text-primary)' : 'var(--theme-text-secondary)'
+                            }}
                         >
                             Browse by Title
                         </button>
@@ -57,9 +61,13 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
                             onClick={() => handleTabChange('genre')}
                             className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
                                 activeTab === 'genre'
-                                    ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white shadow-lg'
-                                    : 'text-gray-600 hover:bg-gray-200'
+                                    ? 'text-white shadow-lg'
+                                    : 'hover:opacity-80'
                             }`}
+                            style={{
+                                backgroundColor: activeTab === 'genre' ? 'var(--theme-primary)' : 'transparent',
+                                color: activeTab === 'genre' ? 'var(--theme-text-primary)' : 'var(--theme-text-secondary)'
+                            }}
                         >
                             Browse by Genre
                         </button>
@@ -69,9 +77,9 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
                 {/* Conditional Content */}
                 {activeTab === 'title' ? (
                     // A-Z Browse Bar for Title Tab
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="rounded-lg p-4" style={{ backgroundColor: 'var(--theme-bg-secondary)', borderColor: 'var(--theme-border-primary)', border: '1px solid' }}>
                         <div className="text-center mb-3">
-                            <p className="text-gray-600 text-sm font-medium">
+                            <p className="text-sm font-medium" style={{ color: 'var(--theme-text-secondary)' }}>
                                 Select a letter to browse movies
                             </p>
                         </div>
@@ -82,9 +90,15 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
                                     onClick={() => handleLetterClick(letter)}
                                     className={`w-10 h-10 rounded-lg font-semibold transition-all duration-200 ${
                                         selectedLetter === letter
-                                            ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white shadow-lg scale-110'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105'
+                                            ? 'text-white shadow-lg scale-110'
+                                            : 'hover:scale-105'
                                     }`}
+                                    style={{
+                                        backgroundColor: selectedLetter === letter ? 'var(--theme-primary)' : 'var(--theme-bg-tertiary)',
+                                        color: selectedLetter === letter ? 'var(--theme-text-primary)' : 'var(--theme-text-secondary)',
+                                        borderColor: 'var(--theme-border-primary)',
+                                        border: '1px solid'
+                                    }}
                                 >
                                     {letter}
                                 </button>
@@ -95,9 +109,15 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
                                     onClick={() => handleLetterClick(number)}
                                     className={`w-10 h-10 rounded-lg font-semibold transition-all duration-200 ${
                                         selectedLetter === number
-                                            ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white shadow-lg scale-110'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105'
+                                            ? 'text-white shadow-lg scale-110'
+                                            : 'hover:scale-105'
                                     }`}
+                                    style={{
+                                        backgroundColor: selectedLetter === number ? 'var(--theme-primary)' : 'var(--theme-bg-tertiary)',
+                                        color: selectedLetter === number ? 'var(--theme-text-primary)' : 'var(--theme-text-secondary)',
+                                        borderColor: 'var(--theme-border-primary)',
+                                        border: '1px solid'
+                                    }}
                                 >
                                     {number}
                                 </button>
@@ -106,9 +126,15 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
                                 onClick={() => handleLetterClick('All')}
                                 className={`px-4 h-10 rounded-lg font-semibold transition-all duration-200 ${
                                     selectedLetter === 'All'
-                                        ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white shadow-lg scale-110'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105'
+                                        ? 'text-white shadow-lg scale-110'
+                                        : 'hover:scale-105'
                                 }`}
+                                style={{
+                                    backgroundColor: selectedLetter === 'All' ? 'var(--theme-primary)' : 'var(--theme-bg-tertiary)',
+                                    color: selectedLetter === 'All' ? 'var(--theme-text-primary)' : 'var(--theme-text-secondary)',
+                                    borderColor: 'var(--theme-border-primary)',
+                                    border: '1px solid'
+                                }}
                             >
                                 All
                             </button>
@@ -116,9 +142,9 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
                     </div>
                 ) : (
                     // Genre List for Genre Tab
-                    <div className="bg-white rounded-lg shadow-md p-4">
+                    <div className="rounded-lg p-4" style={{ backgroundColor: 'var(--theme-bg-secondary)', borderColor: 'var(--theme-border-primary)', border: '1px solid' }}>
                         <div className="text-center mb-4">
-                            <p className="text-gray-600 text-sm font-medium">
+                            <p className="text-sm font-medium" style={{ color: 'var(--theme-text-secondary)' }}>
                                 Select a genre to browse movies
                             </p>
                         </div>
@@ -128,14 +154,25 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({ onBrowseTypeChange, onLet
                                     <button
                                         key={genre.id}
                                         onClick={() => handleGenreClick(genre.id)}
-                                        className="px-4 py-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-200 hover:scale-105"
+                                        className="px-4 py-2 text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-200 hover:scale-105"
+                                        style={{
+                                            background: 'linear-gradient(to right, var(--theme-primary), var(--theme-secondary), var(--theme-accent))'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            const target = e.target as HTMLElement;
+                                            target.style.background = 'linear-gradient(to right, var(--theme-primary-hover), var(--theme-secondary-hover), var(--theme-accent-hover))';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            const target = e.target as HTMLElement;
+                                            target.style.background = 'linear-gradient(to right, var(--theme-primary), var(--theme-secondary), var(--theme-accent))';
+                                        }}
                                     >
                                         {genre.name}
                                     </button>
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-gray-500 text-center">No genres available</p>
+                            <p className="text-center" style={{ color: 'var(--theme-text-muted)' }}>No genres available</p>
                         )}
                     </div>
                 )}

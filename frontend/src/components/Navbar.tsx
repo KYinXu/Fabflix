@@ -20,14 +20,20 @@ const Navbar: React.FC = () => {
     };
 
     return (
-        <nav className="bg-white shadow-lg border-b border-gray-200">
+        <nav className="shadow-lg border-b" style={{ backgroundColor: 'var(--theme-bg-secondary)', borderColor: 'var(--theme-border-primary)' }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                     {/* Logo/Brand */}
                     <div className="flex-shrink-0">
                         <Link 
                             to="/" 
-                            className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+                            className="text-2xl font-bold hover:opacity-80 transition-opacity"
+                            style={{ 
+                                background: 'linear-gradient(to right, var(--theme-primary-light), var(--theme-secondary-light), var(--theme-accent-light))',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text'
+                            }}
                         >
                             Fabflix
                         </Link>
@@ -37,13 +43,39 @@ const Navbar: React.FC = () => {
                     <div className="flex items-center space-x-4">
                         <Link
                             to="/cart"
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            className="text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            style={{ 
+                                backgroundColor: 'var(--theme-primary)',
+                                '--tw-ring-color': 'var(--theme-primary)',
+                                '--tw-ring-offset-color': 'var(--theme-bg-secondary)'
+                            } as React.CSSProperties}
+                            onMouseEnter={(e) => {
+                                const target = e.target as HTMLElement;
+                                target.style.backgroundColor = 'var(--theme-primary-hover)';
+                            }}
+                            onMouseLeave={(e) => {
+                                const target = e.target as HTMLElement;
+                                target.style.backgroundColor = 'var(--theme-primary)';
+                            }}
                         >
                             View Cart
                         </Link>
                         <button
                             onClick={handleLogout}
-                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                            className="text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            style={{ 
+                                backgroundColor: 'var(--theme-error)',
+                                '--tw-ring-color': 'var(--theme-error)',
+                                '--tw-ring-offset-color': 'var(--theme-bg-secondary)'
+                            } as React.CSSProperties}
+                            onMouseEnter={(e) => {
+                                const target = e.target as HTMLElement;
+                                target.style.backgroundColor = '#dc2626';
+                            }}
+                            onMouseLeave={(e) => {
+                                const target = e.target as HTMLElement;
+                                target.style.backgroundColor = 'var(--theme-error)';
+                            }}
                         >
                             Logout
                         </button>

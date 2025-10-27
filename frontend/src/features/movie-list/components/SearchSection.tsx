@@ -4,13 +4,19 @@ import YearDropdown from './YearDropdown';
 
 interface SearchSectionProps {
     onSearch: (movieQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => void;
+    initialValues?: {
+        movieQuery: string;
+        starQuery: string;
+        directorQuery: string;
+        yearQuery: string;
+    };
 }
 
-const SearchSection: React.FC<SearchSectionProps> = ({ onSearch }) => {
-    const [movieSearch, setMovieSearch] = useState('');
-    const [starSearch, setStarSearch] = useState('');
-    const [directorSearch, setDirectorSearch] = useState('');
-    const [yearSearch, setYearSearch] = useState('');
+const SearchSection: React.FC<SearchSectionProps> = ({ onSearch, initialValues }) => {
+    const [movieSearch, setMovieSearch] = useState(initialValues?.movieQuery || '');
+    const [starSearch, setStarSearch] = useState(initialValues?.starQuery || '');
+    const [directorSearch, setDirectorSearch] = useState(initialValues?.directorQuery || '');
+    const [yearSearch, setYearSearch] = useState(initialValues?.yearQuery || '');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -56,7 +62,18 @@ const SearchSection: React.FC<SearchSectionProps> = ({ onSearch }) => {
                 <div className="flex justify-center">
                     <button
                         type="submit"
-                        className="px-8 py-3 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap"
+                        className="px-8 py-3 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 whitespace-nowrap"
+                        style={{
+                            background: 'linear-gradient(to right, var(--theme-primary), var(--theme-secondary), var(--theme-accent))'
+                        }}
+                        onMouseEnter={(e) => {
+                            const target = e.target as HTMLElement;
+                            target.style.background = 'linear-gradient(to right, var(--theme-primary-hover), var(--theme-secondary-hover), var(--theme-accent-hover))';
+                        }}
+                        onMouseLeave={(e) => {
+                            const target = e.target as HTMLElement;
+                            target.style.background = 'linear-gradient(to right, var(--theme-primary), var(--theme-secondary), var(--theme-accent))';
+                        }}
                     >
                         Search
                     </button>

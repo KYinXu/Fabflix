@@ -14,7 +14,7 @@ const Movie: React.FC = () => {
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
             <BackButton text="Back to Movie List" />
-            <div className="text-center py-8">Loading movie information...</div>
+            <div className="text-center py-8" style={{ color: 'var(--theme-text-primary)' }}>Loading movie information...</div>
           </div>
         </div>
       </div>
@@ -28,10 +28,19 @@ const Movie: React.FC = () => {
           <div className="max-w-4xl mx-auto">
             <BackButton text="Back to Movie List" />
             <div className="text-center py-8">
-              <p className="text-red-600 mb-4">Error: {error}</p>
+              <p className="mb-4" style={{ color: 'var(--theme-error)' }}>Error: {error}</p>
               <button 
                 onClick={refetch}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="px-4 py-2 text-white rounded hover:opacity-80 transition-colors duration-200"
+                style={{ backgroundColor: 'var(--theme-primary)' }}
+                onMouseEnter={(e) => {
+                  const target = e.target as HTMLElement;
+                  target.style.backgroundColor = 'var(--theme-primary-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  const target = e.target as HTMLElement;
+                  target.style.backgroundColor = 'var(--theme-primary)';
+                }}
               >
                 Retry
               </button>
@@ -49,7 +58,7 @@ const Movie: React.FC = () => {
           {movie ? (
             <InfoDisplay movie={movie} />
           ) : (
-            <div className="text-center py-8">Movie not found</div>
+            <div className="text-center py-8" style={{ color: 'var(--theme-text-primary)' }}>Movie not found</div>
           )}
         </div>
       </div>

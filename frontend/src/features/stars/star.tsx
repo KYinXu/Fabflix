@@ -11,7 +11,7 @@ const Star: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="text-xl">Loading star information...</div>
+        <div className="text-xl" style={{ color: 'var(--theme-text-primary)' }}>Loading star information...</div>
       </div>
     );
   }
@@ -19,7 +19,7 @@ const Star: React.FC = () => {
   if (error) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="text-xl text-red-600">Error: {error}</div>
+        <div className="text-xl" style={{ color: 'var(--theme-error)' }}>Error: {error}</div>
       </div>
     );
   }
@@ -27,7 +27,7 @@ const Star: React.FC = () => {
   if (!star) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="text-xl">Star not found</div>
+        <div className="text-xl" style={{ color: 'var(--theme-text-primary)' }}>Star not found</div>
       </div>
     );
   }
@@ -38,11 +38,11 @@ const Star: React.FC = () => {
         <BackButton text="Back to Movie List" />
         
         {/* Star Header */}
-        <div className="border-b-4 border-purple-600 pb-6">
-          <h1 className="text-5xl font-bold text-gray-900 mb-2">{star.name}</h1>
+        <div className="pb-6" style={{ borderBottom: '4px solid var(--theme-secondary)' }}>
+          <h1 className="text-5xl font-bold mb-2" style={{ color: 'var(--theme-text-primary)' }}>{star.name}</h1>
           {star.birth_year && (
-            <p className="text-lg text-gray-600">
-              Born: <span className="font-semibold text-gray-900">{star.birth_year}</span>
+            <p className="text-lg" style={{ color: 'var(--theme-text-secondary)' }}>
+              Born: <span className="font-semibold" style={{ color: 'var(--theme-text-primary)' }}>{star.birth_year}</span>
             </p>
           )}
         </div>

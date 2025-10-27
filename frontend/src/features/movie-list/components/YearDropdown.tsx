@@ -18,11 +18,17 @@ const YearDropdown: React.FC<YearDropdownProps> = ({ value, onChange }) => {
         <select
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all bg-white"
+            className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 transition-all"
+            style={{
+                borderColor: 'var(--theme-border-primary)',
+                backgroundColor: 'var(--theme-bg-secondary)',
+                color: 'var(--theme-text-primary)',
+                '--tw-ring-color': 'var(--theme-secondary)'
+            } as React.CSSProperties}
         >
-            <option value="">Year... 📅</option>
+            <option value="" style={{ backgroundColor: 'var(--theme-bg-secondary)', color: 'var(--theme-text-primary)' }}>Year... 📅</option>
             {years.map((year) => (
-                <option key={year} value={year}>
+                <option key={year} value={year} style={{ backgroundColor: 'var(--theme-bg-secondary)', color: 'var(--theme-text-primary)' }}>
                     {year}
                 </option>
             ))}
