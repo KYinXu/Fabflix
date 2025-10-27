@@ -12,6 +12,7 @@ interface SessionState {
     selectedLetter: string;
     selectedGenreId: number | null;
     searchState: SearchState;
+    lastSearchMethod: 'browse' | 'search';
     sortCriteria: string;
     sortOrder: string;
     pageSize: number;
@@ -45,8 +46,8 @@ export const useSessionState = (): UseSessionStateReturn => {
             });
 
             if (!response.ok) {
-                //const errorData = await response.json();
-                //throw new Error(errorData.message || 'Failed to save state');
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to save state');
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unknown error occurred during save');
@@ -70,8 +71,8 @@ export const useSessionState = (): UseSessionStateReturn => {
             }
 
             if (!response.ok) {
-                //const errorData = await response.json();
-                //throw new Error(errorData.message || 'Failed to load state');
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to load state');
             }
 
             const data = await response.json();

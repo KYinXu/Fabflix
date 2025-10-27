@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useFetchMovieList } from "../hooks/useFetchMovieList";
 import { useFetchGenres } from "../hooks/useFetchGenres";
@@ -18,6 +18,8 @@ const MovieList: React.FC = () => {
     const [selectedLetter, setSelectedLetter] = useState<string>('All');
     const [selectedGenreId, setSelectedGenreId] = useState<number | null>(null);
     const [hasInitialized, setHasInitialized] = useState(false);
+    const [lastSearchMethod, setLastSearchMethod] = useState<'browse' | 'search'>('browse');
+    const hasLoadedRef = useRef(false);
     const [searchValues, setSearchValues] = useState({
         movieQuery: '',
         starQuery: '',
@@ -28,39 +30,47 @@ const MovieList: React.FC = () => {
     // Load session state on mount
     useEffect(() => {
         const loadSessionState = async () => {
-            if (!hasInitialized) {
+            if (!hasLoadedRef.current) {
+                hasLoadedRef.current = true;
+                console.log(`[${new Date().toISOString()}] Starting session loading...`);
                 const sessionState = await loadState();
+                console.log(`[${new Date().toISOString()}] Session loading completed, state:`, sessionState);
                 if (sessionState) {
+                    console.log('Loaded session state:', sessionState);
                     // Restore browse type and selections
                     setBrowseType(sessionState.browseType);
                     setSelectedLetter(sessionState.selectedLetter);
                     setSelectedGenreId(sessionState.selectedGenreId);
                     setSearchValues(sessionState.searchState);
+                    setLastSearchMethod(sessionState.lastSearchMethod || 'browse');
                     
-                    // Restore sort settings
-                    if (sessionState.sortCriteria) {
-                        setSortCriteria(sessionState.sortCriteria);
-                    }
-                    if (sessionState.sortOrder) {
-                        setSortOrder(sessionState.sortOrder);
-                    }
-                    if (sessionState.pageSize) {
-                        setPageSize(sessionState.pageSize);
-                    }
+                    // Note: Sort settings and page size will be restored by the actual query functions
+                    // to avoid triggering multiple fetchMovie calls
                     
-                    // Apply the restored state
-                    if (sessionState.browseType === 'genre' && sessionState.selectedGenreId) {
-                        browseByGenre(sessionState.selectedGenreId);
-                    } else if (sessionState.browseType === 'title') {
-                        browseMovies(sessionState.selectedLetter);
-                    } else if (sessionState.searchState.movieQuery || sessionState.searchState.starQuery || 
-                               sessionState.searchState.directorQuery || sessionState.searchState.yearQuery) {
+                    // Apply the restored state based on lastSearchMethod
+                    if (sessionState.lastSearchMethod === 'search' && 
+                        (sessionState.searchState.movieQuery || sessionState.searchState.starQuery || 
+                         sessionState.searchState.directorQuery || sessionState.searchState.yearQuery)) {
+                        // Restore search results
+                        console.log(`[${new Date().toISOString()}] Restoring search results:`, sessionState.searchState);
                         searchMovies(
                             sessionState.searchState.movieQuery,
                             sessionState.searchState.starQuery,
                             sessionState.searchState.directorQuery,
                             sessionState.searchState.yearQuery
                         );
+                    } else if (sessionState.browseType === 'genre' && sessionState.selectedGenreId) {
+                        // Restore genre browse
+                        console.log(`[${new Date().toISOString()}] Restoring genre browse:`, sessionState.selectedGenreId);
+                        browseByGenre(sessionState.selectedGenreId);
+                    } else if (sessionState.browseType === 'title' && sessionState.selectedLetter && sessionState.selectedLetter !== 'All') {
+                        // Restore title browse (only if not 'All')
+                        console.log(`[${new Date().toISOString()}] Restoring title browse:`, sessionState.selectedLetter);
+                        browseMovies(sessionState.selectedLetter);
+                    } else if (sessionState.browseType === 'title' && sessionState.selectedLetter === 'All') {
+                        // Default browse all movies
+                        console.log(`[${new Date().toISOString()}] Restoring browse all movies`);
+                        browseMovies('All');
                     }
                 } else {
                     // Handle URL parameters if no session state
@@ -73,6 +83,10 @@ const MovieList: React.FC = () => {
                             setSelectedLetter('');
                             browseByGenre(genreId);
                         }
+                    } else {
+                        // No session state and no URL params - load default movies
+                        console.log('No session state, loading default movies');
+                        browseMovies('All');
                     }
                 }
                 setHasInitialized(true);
@@ -80,49 +94,54 @@ const MovieList: React.FC = () => {
         };
         
         loadSessionState();
-    }, [hasInitialized, loadState, browseByGenre, browseMovies, searchMovies, setSortCriteria, setSortOrder, setPageSize, searchParams]);
+    }, []); // Empty dependency array - only run once on mount
     
     const handleSearch = async (movieQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => {
         // Search movies by title, star, director, and year (empty strings show all movies)
         searchMovies(movieQuery, starQuery, directorQuery, yearQuery);
         setSelectedLetter('All');
         setSelectedGenreId(null);
+        setLastSearchMethod('search');
         
         // Update search values and save to session
         const newSearchValues = { movieQuery, starQuery, directorQuery, yearQuery };
         setSearchValues(newSearchValues);
         
-        await saveState({
+        const stateToSave = {
             browseType: 'title',
             selectedLetter: 'All',
             selectedGenreId: null,
             searchState: newSearchValues,
+            lastSearchMethod: 'search',
+            sortCriteria,
+            sortOrder,
+            pageSize,
+            currentPage
+        };
+        console.log('Saving search state:', stateToSave);
+        await saveState(stateToSave);
+    };
+
+
+    const handleLetterChange = async (letter: string) => {
+        // Always trigger browse when letter is clicked
+        browseMovies(letter);
+        setBrowseType('title');
+        setSelectedLetter(letter);
+        setSelectedGenreId(null);
+        setLastSearchMethod('browse');
+        
+        await saveState({
+            browseType: 'title',
+            selectedLetter: letter,
+            selectedGenreId: null,
+            searchState: searchValues,
+            lastSearchMethod: 'browse',
             sortCriteria,
             sortOrder,
             pageSize,
             currentPage
         });
-    };
-
-
-    const handleLetterChange = async (letter: string) => {
-        // Only trigger browse if we're on the title tab
-        if (browseType === 'title') {
-            browseMovies(letter);
-            setSelectedLetter(letter);
-            setSelectedGenreId(null);
-            
-            await saveState({
-                browseType,
-                selectedLetter: letter,
-                selectedGenreId: null,
-                searchState: searchValues,
-                sortCriteria,
-                sortOrder,
-                pageSize,
-                currentPage
-            });
-        }
     };
 
     const handleGenreChange = async (genreId: number) => {
@@ -131,12 +150,14 @@ const MovieList: React.FC = () => {
         setBrowseType('genre');
         setSelectedGenreId(genreId);
         setSelectedLetter('');
+        setLastSearchMethod('browse');
         
         await saveState({
             browseType: 'genre',
             selectedLetter: '',
             selectedGenreId: genreId,
             searchState: searchValues,
+            lastSearchMethod: 'browse',
             sortCriteria,
             sortOrder,
             pageSize,
@@ -153,6 +174,7 @@ const MovieList: React.FC = () => {
             selectedLetter,
             selectedGenreId,
             searchState: searchValues,
+            lastSearchMethod,
             sortCriteria: newSortCriteria,
             sortOrder: newSortOrder,
             pageSize,
@@ -168,9 +190,33 @@ const MovieList: React.FC = () => {
             selectedLetter,
             selectedGenreId,
             searchState: searchValues,
+            lastSearchMethod,
             sortCriteria,
             sortOrder,
             pageSize: newPageSize,
+            currentPage
+        });
+    };
+
+    const handleBrowseTypeChange = async (type: 'title' | 'genre') => {
+        setBrowseType(type);
+        if (type === 'title') {
+            setSelectedLetter('All');
+            setSelectedGenreId(null);
+        } else {
+            setSelectedLetter('');
+            setSelectedGenreId(null);
+        }
+        
+        await saveState({
+            browseType: type,
+            selectedLetter: type === 'title' ? 'All' : '',
+            selectedGenreId: null,
+            searchState: searchValues,
+            lastSearchMethod: 'browse',
+            sortCriteria,
+            sortOrder,
+            pageSize,
             currentPage
         });
     };
@@ -195,6 +241,7 @@ const MovieList: React.FC = () => {
                 <BrowseSection 
                     onLetterChange={handleLetterChange}
                     onGenreChange={handleGenreChange}
+                    onBrowseTypeChange={handleBrowseTypeChange}
                     genres={genres}
                     initialBrowseType={browseType}
                     initialSelectedLetter={selectedLetter}
@@ -278,14 +325,21 @@ const MovieList: React.FC = () => {
             </div>
             
             {/* Display current filter */}
-            {(selectedLetter || selectedGenreId !== null) && (
+            {(selectedLetter || selectedGenreId !== null || (lastSearchMethod === 'search' && (searchValues.movieQuery || searchValues.starQuery || searchValues.directorQuery || searchValues.yearQuery))) && 
+             !(browseType === 'title' && selectedLetter === 'All') && (
                 <div className="container mx-auto px-4 mb-6">
                     <h2 className="text-4xl font-bold text-center" style={{ color: 'var(--theme-text-primary)' }}>
-                        {browseType === 'title' && selectedLetter && (
-                            <>Browsing movies starting with "<span className="font-extrabold" style={{ color: 'var(--theme-secondary-light)' }}>{selectedLetter === 'All' ? 'All Letters' : selectedLetter}</span>"</>
-                        )}
-                        {browseType === 'genre' && selectedGenreId !== null && genres && (
-                            <>Browsing <span className="font-extrabold" style={{ color: 'var(--theme-secondary-light)' }}>{genres.find(g => g.id === selectedGenreId)?.name || 'Genre'}</span> movies</>
+                        {lastSearchMethod === 'search' && (searchValues.movieQuery || searchValues.starQuery || searchValues.directorQuery || searchValues.yearQuery) ? (
+                            <>Search results</>
+                        ) : (
+                            <>
+                                {browseType === 'title' && selectedLetter && (
+                                    <>Browsing movies starting with "<span className="font-extrabold" style={{ color: 'var(--theme-secondary-light)' }}>{selectedLetter === 'All' ? 'All Letters' : selectedLetter}</span>"</>
+                                )}
+                                {browseType === 'genre' && selectedGenreId !== null && genres && (
+                                    <>Browsing <span className="font-extrabold" style={{ color: 'var(--theme-secondary-light)' }}>{genres.find(g => g.id === selectedGenreId)?.name || 'Genre'}</span> movies</>
+                                )}
+                            </>
                         )}
                     </h2>
                 </div>

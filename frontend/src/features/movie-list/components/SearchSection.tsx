@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import SearchBar from './SearchBar';
 import YearDropdown from './YearDropdown';
 
@@ -17,6 +17,16 @@ const SearchSection: React.FC<SearchSectionProps> = ({ onSearch, initialValues }
     const [starSearch, setStarSearch] = useState(initialValues?.starQuery || '');
     const [directorSearch, setDirectorSearch] = useState(initialValues?.directorQuery || '');
     const [yearSearch, setYearSearch] = useState(initialValues?.yearQuery || '');
+
+    // Update state when initialValues change
+    useEffect(() => {
+        if (initialValues) {
+            setMovieSearch(initialValues.movieQuery || '');
+            setStarSearch(initialValues.starQuery || '');
+            setDirectorSearch(initialValues.directorQuery || '');
+            setYearSearch(initialValues.yearQuery || '');
+        }
+    }, [initialValues]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();

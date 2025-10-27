@@ -23,7 +23,7 @@ interface useFetchReturn {
 export const useFetchMovieList = () : useFetchReturn => {
     // State variables
     const [data, setData] = useState<Movie[] | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState<number>(0);
     const [hasNextPage, setHasNextPage] = useState<boolean>(false);
@@ -50,6 +50,7 @@ export const useFetchMovieList = () : useFetchReturn => {
 
     // Data Fetching
     const fetchMovie = async (titleQuery: string = '', starQuery: string = '', directorQuery: string = '', yearQuery: string = '', letter: string = '', genreId: number | null = null, page: number = 0, size: number = 25, criteria: string = sortCriteria, order: string = sortOrder) => {
+        console.log(`[${new Date().toISOString()}] fetchMovie called with:`, { titleQuery, starQuery, directorQuery, yearQuery, letter, genreId, page, size, criteria, order });
         setLoading(true);
         setError(null);
         try{
@@ -117,21 +118,21 @@ export const useFetchMovieList = () : useFetchReturn => {
         setCurrentPage(0);
         setLastQuery({ titleQuery, starQuery, directorQuery, yearQuery, letter: '', genreId: null });
         await fetchMovie(titleQuery, starQuery, directorQuery, yearQuery, '', null, 0, pageSize);
-    }, [pageSize]);
+    }, []); // Removed pageSize dependency
 
     // Browse function for browsing by letter
     const browseMovies = useCallback(async (letter: string) => {
         setCurrentPage(0);
         setLastQuery({ titleQuery: '', starQuery: '', directorQuery: '', yearQuery: '', letter, genreId: null });
         await fetchMovie('', '', '', '', letter, null, 0, pageSize);
-    }, [pageSize]);
+    }, []); // Removed pageSize dependency
 
     // Browse function for browsing by genre
     const browseByGenre = useCallback(async (genreId: number) => {
         setCurrentPage(0);
         setLastQuery({ titleQuery: '', starQuery: '', directorQuery: '', yearQuery: '', letter: '', genreId });
         await fetchMovie('', '', '', '', '', genreId, 0, pageSize);
-    }, [pageSize]);
+    }, []); // Removed pageSize dependency
 
     // Pagination functions
     const goToNextPage = useCallback(async () => {
@@ -216,9 +217,10 @@ export const useFetchMovieList = () : useFetchReturn => {
     }, [lastQuery, pageSize, sortCriteria]);
 
     // Run & Return States
-    useEffect(() => {
-        fetchMovie();
-    }, []); // no argument, as this page is static
+    // Removed automatic fetchMovie() call - let session loading handle initial query
+    // useEffect(() => {
+    //     fetchMovie();
+    // }, []); // no argument, as this page is static
 
     return { data, loading, error, currentPage, hasNextPage, pageSize, sortCriteria, sortOrder, searchMovies, browseMovies, browseByGenre, goToNextPage, goToPreviousPage, setPageSize, setSortCriteria, setSortOrder };
 }
