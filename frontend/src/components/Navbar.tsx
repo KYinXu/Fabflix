@@ -45,7 +45,7 @@ const Navbar: React.FC = () => {
                         <CheckoutButton />
                         <button
                             onClick={handleLogout}
-                            className="text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            className="text-white px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
                             style={{ 
                                 backgroundColor: 'var(--theme-error)',
                                 '--tw-ring-color': 'var(--theme-error)',

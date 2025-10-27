@@ -30,7 +30,7 @@ public class CartItem {
     }
 
     public void increaseQuantity() {
-        quantity += quantity;
+        quantity += 1;
     }
 
     public void setQuantity(int quantity) {

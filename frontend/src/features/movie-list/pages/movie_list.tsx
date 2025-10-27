@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { useFetchMovieList } from "../hooks/useFetchMovieList";
 import { useFetchGenres } from "../hooks/useFetchGenres";
 import { useSessionState } from "@/hooks/useSessionState";
@@ -15,10 +15,12 @@ const MovieList: React.FC = () => {
     const {data: genres} = useFetchGenres(); // fetch genres
     const {saveState, loadState} = useSessionState(); // session state management
     const [searchParams] = useSearchParams();
+    const location = useLocation();
     const [browseType, setBrowseType] = useState<'title' | 'genre'>('title');
     const [selectedLetter, setSelectedLetter] = useState<string>('All');
     const [selectedGenreId, setSelectedGenreId] = useState<number | null>(null);
     const hasLoadedRef = useRef(false);
+    const previousPathRef = useRef<string>(location.pathname);
     
     // Helper function to get current state
     const getCurrentState = (): CurrentState => ({
@@ -38,21 +40,34 @@ const MovieList: React.FC = () => {
         yearQuery: ''
     });
     
-    // Load session state on mount
+    // Load session state on mount or when navigating to home from another route
     useEffect(() => {
         const loadSessionState = async () => {
-            if (!hasLoadedRef.current) {
+            // Check if we navigated FROM another route TO home
+            const navigatedToHome = previousPathRef.current !== location.pathname && location.pathname === '/';
+            
+            // Either first load or navigating to home from another page
+            if (!hasLoadedRef.current || navigatedToHome) {
                 hasLoadedRef.current = true;
+                
                 const sessionState = await loadState();
-                if (sessionState) {
+                
+                // Check if there's any meaningful state to restore
+                const hasRestorableState = sessionState && (
+                    sessionState.searchState.movieQuery || 
+                    sessionState.searchState.starQuery || 
+                    sessionState.searchState.directorQuery || 
+                    sessionState.searchState.yearQuery ||
+                    (sessionState.browseType === 'genre' && sessionState.selectedGenreId) ||
+                    (sessionState.browseType === 'title' && sessionState.selectedLetter && sessionState.selectedLetter !== 'All')
+                );
+                
+                if (hasRestorableState) {
                     // Restore browse type and selections
                     setBrowseType(sessionState.browseType);
                     setSelectedLetter(sessionState.selectedLetter);
                     setSelectedGenreId(sessionState.selectedGenreId);
                     setSearchValues(sessionState.searchState);
-                    
-                    // Note: Sort settings and page size will be restored by the actual query functions
-                    // to avoid triggering multiple fetchMovie calls
                     
                     // Apply the restored state based on search state
                     if (sessionState.searchState.movieQuery || sessionState.searchState.starQuery || 
@@ -70,12 +85,9 @@ const MovieList: React.FC = () => {
                     } else if (sessionState.browseType === 'title' && sessionState.selectedLetter && sessionState.selectedLetter !== 'All') {
                         // Restore title browse (only if not 'All')
                         browseMovies(sessionState.selectedLetter);
-                    } else if (sessionState.browseType === 'title' && sessionState.selectedLetter === 'All') {
-                        // Default browse all movies
-                        browseMovies('All');
                     }
                 } else {
-                    // Handle URL parameters if no session state
+                    // No meaningful session state - handle URL parameters or load default
                     const genreIdParam = searchParams.get('genreId');
                     if (genreIdParam) {
                         const genreId = parseInt(genreIdParam);
@@ -86,15 +98,18 @@ const MovieList: React.FC = () => {
                             browseByGenre(genreId);
                         }
                     } else {
-                        // No session state and no URL params - load default movies
+                        // No session state, no URL params - execute default query
                         browseMovies('All');
                     }
                 }
             }
+            
+            // Update previous path for next comparison
+            previousPathRef.current = location.pathname;
         };
         
         loadSessionState();
-    }, []); // Empty dependency array - only run once on mount
+    }, [location.pathname, searchParams]); // Re-run when location changes
     
     const handleSearch = async (movieQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => {
         // Search movies by title, star, director, and year (empty strings show all movies)
