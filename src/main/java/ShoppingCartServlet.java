@@ -45,7 +45,7 @@ public class ShoppingCartServlet extends HttpServlet {
                     existingItem.increaseQuantity();
                 }
                 else{
-                    double price = 5 + (new Random().nextDouble() * 25);
+                    double price = Math.floor((5 + (new Random().nextDouble() * 25)) * 100) / 100;
                     CartItem movie = new CartItem(movieId, title, price, quantity);
                     shoppingCart.put(movieId, movie);
                 }

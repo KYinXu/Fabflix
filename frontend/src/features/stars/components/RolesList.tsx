@@ -18,12 +18,12 @@ interface RolesListProps {
 
 const RolesList: React.FC<RolesListProps> = ({ movies }) => {
   if (!movies || movies.length === 0) {
-    return <p className="text-gray-500">No movies found for this star.</p>;
+    return <p style={{ color: 'var(--theme-text-muted)' }}>No movies found for this star.</p>;
   }
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-gray-900">Movies</h2>
+      <h2 className="text-2xl font-bold" style={{ color: 'var(--theme-text-primary)' }}>Movies</h2>
       <div className="space-y-4">
         {movies.map((movie) => (
           <RolesDisplay key={movie.id} movie={movie} />

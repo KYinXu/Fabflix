@@ -28,7 +28,19 @@ const GenresList: React.FC<GenresListProps> = ({ genres }) => {
         <button
           key={genre.id}
           onClick={() => handleGenreClick(genre.id)}
-          className="px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-200 hover:text-blue-800 transition-colors cursor-pointer"
+          className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer"
+          style={{
+            backgroundColor: 'var(--theme-primary)',
+            color: 'var(--theme-text-primary)'
+          }}
+          onMouseEnter={(e) => {
+            const target = e.target as HTMLElement;
+            target.style.backgroundColor = 'var(--theme-primary-hover)';
+          }}
+          onMouseLeave={(e) => {
+            const target = e.target as HTMLElement;
+            target.style.backgroundColor = 'var(--theme-primary)';
+          }}
         >
           {genre.name}
         </button>
