@@ -104,38 +104,6 @@ const MovieList: React.FC = () => {
         });
     };
 
-    const handleBrowseTypeChange = async (type: 'title' | 'genre') => {
-        setBrowseType(type);
-        if (type === 'title') {
-            browseMovies('All');
-            setSelectedLetter('All');
-            setSelectedGenreId(null);
-            
-            await saveState({
-                browseType: type,
-                selectedLetter: 'All',
-                selectedGenreId: null,
-                searchState: searchValues,
-                sortCriteria,
-                sortOrder,
-                pageSize,
-                currentPage
-            });
-        } else {
-            setSelectedLetter('');
-            
-            await saveState({
-                browseType: type,
-                selectedLetter: '',
-                selectedGenreId: null,
-                searchState: searchValues,
-                sortCriteria,
-                sortOrder,
-                pageSize,
-                currentPage
-            });
-        }
-    };
 
     const handleLetterChange = async (letter: string) => {
         // Only trigger browse if we're on the title tab

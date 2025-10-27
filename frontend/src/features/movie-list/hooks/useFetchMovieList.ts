@@ -96,14 +96,12 @@ export const useFetchMovieList = () : useFetchReturn => {
 
             const fetching = await fetch(url, {credentials: 'include'})
             const fetchedData = await fetching.json() // converts to JSON
-            console.log(fetchedData) // logs JSON data
             setData(fetchedData);
             
             // Determine if there's a next page (if we got exactly size results, there might be more)
             setHasNextPage(fetchedData.length === size);
         }
         catch (error){ // error handling for crashes
-            console.log(error)
             const message =
                 error instanceof Error ? error.message : "An error has occurred";
             setError(message);

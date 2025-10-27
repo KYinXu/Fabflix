@@ -23,7 +23,6 @@ export const useFetchGenres = (): useFetchGenresReturn => {
                     credentials: 'include'
                 });
                 const fetchedData = await response.json();
-                console.log('Genres fetched:', fetchedData);
                 setData(fetchedData);
             } catch (err) {
                 console.error(err);

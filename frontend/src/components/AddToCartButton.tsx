@@ -18,12 +18,10 @@ function AddToCartButton({ movie } : { movie: any }) {
                     },
                 ])
             };
-            const response = await fetch(BASE_URL, postRequest);
-            const jsonResponse = await response.json();
-            console.log("RESPONSE: ", jsonResponse)
+            await fetch(BASE_URL, postRequest);
 
         } catch (err: any) {
-            console.log(err);
+            console.error('Failed to add item to cart:', err);
         }
     };
 
