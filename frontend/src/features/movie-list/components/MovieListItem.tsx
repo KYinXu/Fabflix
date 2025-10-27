@@ -21,10 +21,9 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
     return (
         <div
             onClick={handleCardClick}
-            className="p-6 border-2 rounded hover:border-blue-500 transition-colors duration-300 cursor-pointer block"
+            className="p-6 rounded transition-all duration-300 cursor-pointer block group"
             style={{ 
-                backgroundColor: 'var(--theme-bg-secondary)',
-                borderColor: 'var(--theme-border-primary)'
+                backgroundColor: 'var(--theme-bg-secondary)'
             }}
         >
             <div className="flex justify-between items-start mb-3">

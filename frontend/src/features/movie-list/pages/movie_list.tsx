@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useFetchMovieList } from "../hooks/useFetchMovieList";
 import { useFetchGenres } from "../hooks/useFetchGenres";
-import { useSessionStorage } from "@/hooks/useSessionStorage";
 import MovieListGrid from '../components/MovieListGrid';
 import SearchSection from '../components/SearchSection';
 import BrowseSection from '../components/BrowseSection';
@@ -12,44 +11,13 @@ import PaginationControls from '../components/PaginationControls';
 const MovieList: React.FC = () => {
     const {data, loading, error, currentPage, hasNextPage, pageSize, sortCriteria, sortOrder, searchMovies, browseMovies, browseByGenre, goToNextPage, goToPreviousPage, setPageSize, setSortCriteria, setSortOrder} = useFetchMovieList(); // create state by calling hook
     const {data: genres} = useFetchGenres(); // fetch genres
-    const {saveState, loadState} = useSessionStorage(); // backend session storage
     const [searchParams] = useSearchParams();
     const [browseType, setBrowseType] = useState<'title' | 'genre'>('title');
     const [selectedLetter, setSelectedLetter] = useState<string>('All');
     const [selectedGenreId, setSelectedGenreId] = useState<number | null>(null);
     const [hasInitialized, setHasInitialized] = useState(false);
-    const [searchValues, setSearchValues] = useState({
-        movieQuery: '',
-        starQuery: '',
-        directorQuery: '',
-        yearQuery: ''
-    });
     
-    // Restore state from backend session on mount
-    useEffect(() => {
-        const restoreState = async () => {
-            if (!hasInitialized) {
-                const savedState = await loadState();
-                if (savedState) {
-                    setBrowseType(savedState.browseType);
-                    setSelectedLetter(savedState.selectedLetter);
-                    setSelectedGenreId(savedState.selectedGenreId);
-                    setSearchValues(savedState.searchState);
-                    
-                    // Restore search if there was a search
-                    const { movieQuery, starQuery, directorQuery, yearQuery } = savedState.searchState;
-                    if (movieQuery || starQuery || directorQuery || yearQuery) {
-                        searchMovies(movieQuery, starQuery, directorQuery, yearQuery);
-                    }
-                }
-                setHasInitialized(true);
-            }
-        };
-        
-        restoreState();
-    }, [hasInitialized, loadState, searchMovies]);
-    
-    // Handle URL parameters on mount (overrides session storage)
+    // Handle URL parameters on mount
     useEffect(() => {
         const genreIdParam = searchParams.get('genreId');
         if (genreIdParam && !hasInitialized) {
@@ -69,16 +37,6 @@ const MovieList: React.FC = () => {
         searchMovies(movieQuery, starQuery, directorQuery, yearQuery);
         setSelectedLetter('All');
         setSelectedGenreId(null);
-        
-        // Update search values and save to backend session
-        const newSearchValues = { movieQuery, starQuery, directorQuery, yearQuery };
-        setSearchValues(newSearchValues);
-        saveState({
-            browseType: 'title',
-            selectedLetter: 'All',
-            selectedGenreId: null,
-            searchState: newSearchValues
-        });
     };
 
     const handleBrowseTypeChange = (type: 'title' | 'genre') => {
@@ -87,20 +45,8 @@ const MovieList: React.FC = () => {
             browseMovies('All');
             setSelectedLetter('All');
             setSelectedGenreId(null);
-            saveState({
-                browseType: type,
-                selectedLetter: 'All',
-                selectedGenreId: null,
-                searchState: { movieQuery: '', starQuery: '', directorQuery: '', yearQuery: '' }
-            });
         } else {
             setSelectedLetter('');
-            saveState({
-                browseType: type,
-                selectedLetter: '',
-                selectedGenreId: null,
-                searchState: { movieQuery: '', starQuery: '', directorQuery: '', yearQuery: '' }
-            });
         }
     };
 
@@ -110,12 +56,6 @@ const MovieList: React.FC = () => {
             browseMovies(letter);
             setSelectedLetter(letter);
             setSelectedGenreId(null);
-            saveState({
-                browseType: 'title',
-                selectedLetter: letter,
-                selectedGenreId: null,
-                searchState: { movieQuery: '', starQuery: '', directorQuery: '', yearQuery: '' }
-            });
         }
     };
 
@@ -125,12 +65,6 @@ const MovieList: React.FC = () => {
             browseByGenre(genreId);
             setSelectedGenreId(genreId);
             setSelectedLetter('');
-            saveState({
-                browseType: 'genre',
-                selectedLetter: '',
-                selectedGenreId: genreId,
-                searchState: { movieQuery: '', starQuery: '', directorQuery: '', yearQuery: '' }
-            });
         }
     };
 
@@ -148,7 +82,7 @@ const MovieList: React.FC = () => {
                     Fabflix
                 </h1>
                 
-                <SearchSection onSearch={handleSearch} initialValues={searchValues} />
+                <SearchSection onSearch={handleSearch} />
                 
                 <BrowseSection 
                     onBrowseTypeChange={handleBrowseTypeChange}

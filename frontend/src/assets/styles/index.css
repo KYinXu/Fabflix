@@ -23,6 +23,7 @@
   --theme-bg-primary: #111827; /* gray-900 */
   --theme-bg-secondary: #1f2937; /* gray-800 */
   --theme-bg-tertiary: #374151; /* gray-700 */
+  --theme-bg-hover: #0f172a; /* slate-900 - darker than gray-800 but not too dark */
   --theme-bg-card: #ffffff; /* white */
   
   /* Text Colors */
@@ -49,4 +50,17 @@ body {
 /* Prevent layout shift from scrollbar appearing/disappearing */
 html {
   overflow-y: scroll;
+}
+
+/* Movie card hover effect */
+.group {
+  transition: background-color 150ms ease-in !important; /* Fast transition in */
+}
+
+.group:hover {
+  background-color: var(--theme-bg-hover) !important;
+}
+
+.group:not(:hover) {
+  transition: background-color 500ms ease-out !important; /* Slow transition out */
 }
