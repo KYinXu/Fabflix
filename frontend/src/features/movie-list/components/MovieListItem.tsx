@@ -5,9 +5,10 @@ import AddToCartButton from "../../../components/AddToCartButton";
 
 interface MovieListItemProps {
     movie: Movie;
+    onGenreClick?: (genreId: number) => void;
 }
 
-const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
+const MovieListItem: React.FC<MovieListItemProps> = ({ movie, onGenreClick }) => {
     const navigate = useNavigate();
     
     const handleCardClick = (e: React.MouseEvent) => {
@@ -18,10 +19,17 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
         navigate(`/movie/${movie.id}`);
     };
     
+    const handleGenreClick = (e: React.MouseEvent, genreId: number) => {
+        e.stopPropagation(); // Prevent card click
+        if (onGenreClick) {
+            onGenreClick(genreId);
+        }
+    };
+    
     return (
         <div
             onClick={handleCardClick}
-            className="p-6 rounded transition-all duration-300 cursor-pointer block group"
+            className="p-6 rounded transition-all duration-300 cursor-pointer block group h-full flex flex-col"
             style={{ 
                 backgroundColor: 'var(--theme-bg-secondary)'
             }}
@@ -38,7 +46,7 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
                 )}
             </div>
             
-            <div className="space-y-3" style={{ color: 'var(--theme-text-secondary)' }}>
+            <div className="space-y-3 mb-4 flex-1" style={{ color: 'var(--theme-text-secondary)' }}>
                 <p className="flex items-center">
                     <span className="font-semibold mr-2" style={{ color: 'var(--theme-text-primary)' }}>Year:</span>
                     <span>{movie.year}</span>
@@ -55,7 +63,23 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
                             {movie.genres.map((genre) => (
                                 <span
                                     key={genre.id}
-                                    className="px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded-full"
+                                    className="px-2 py-1 text-sm rounded-full cursor-pointer transition-all duration-200"
+                                    style={{ 
+                                        backgroundColor: 'rgba(109, 40, 217, 0.1)', 
+                                        color: '#6d28d9',
+                                        border: '1px solid rgba(109, 40, 217, 0.3)'
+                                    }}
+                                    onClick={(e) => handleGenreClick(e, genre.id)}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#6d28d9';
+                                        e.currentTarget.style.color = 'white';
+                                        e.currentTarget.style.borderColor = '#6d28d9';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'rgba(109, 40, 217, 0.1)';
+                                        e.currentTarget.style.color = '#6d28d9';
+                                        e.currentTarget.style.borderColor = 'rgba(109, 40, 217, 0.3)';
+                                    }}
                                 >
                                     {genre.name}
                                 </span>
@@ -72,7 +96,22 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
                                 <Link
                                     key={star.id}
                                     to={`/star/${star.id}`}
-                                    className="px-3 py-1.5 bg-purple-100 text-purple-700 text-sm rounded-md hover:bg-purple-200 hover:shadow-md transition-all duration-200 font-medium"
+                                    className="px-2 py-1 text-sm rounded-full transition-all duration-200"
+                                    style={{ 
+                                        backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                                        color: '#3b82f6',
+                                        border: '1px solid rgba(59, 130, 246, 0.3)'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#3b82f6';
+                                        e.currentTarget.style.color = 'white';
+                                        e.currentTarget.style.borderColor = '#3b82f6';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+                                        e.currentTarget.style.color = '#3b82f6';
+                                        e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                                    }}
                                 >
                                     {star.name}
                                 </Link>
@@ -81,7 +120,8 @@ const MovieListItem: React.FC<MovieListItemProps> = ({ movie }) => {
                     </div>
                 )}
             </div>
-            <div className="flex justify-self-start container mx-auto px-4 mb-4">
+            
+            <div className="flex justify-end">
                 <AddToCartButton movie={movie} />
             </div>
         </div>

@@ -265,24 +265,26 @@ const MovieList: React.FC = () => {
              !(browseType === 'title' && selectedLetter === 'All') && (
                 <div className="container mx-auto px-4 mb-6">
                     <h2 className="text-4xl font-bold text-center" style={{ color: 'var(--theme-text-primary)' }}>
-                        {(searchValues.movieQuery || searchValues.starQuery || searchValues.directorQuery || searchValues.yearQuery) ? (
-                            <>Search results</>
-                        ) : (
+                        {(browseType === 'title' && selectedLetter && selectedLetter !== 'All') || (browseType === 'genre' && selectedGenreId !== null) ? (
                             <>
                                 {browseType === 'title' && selectedLetter && (
-                                    <>Browsing movies starting with "<span className="font-extrabold" style={{ color: 'var(--theme-secondary-light)' }}>{selectedLetter === 'All' ? 'All Letters' : selectedLetter}</span>"</>
+                                    <>Browsing movies starting with "<span className="font-extrabold" style={{ color: 'var(--theme-secondary-light)' }}>{selectedLetter}</span>"</>
                                 )}
                                 {browseType === 'genre' && selectedGenreId !== null && genres && (
                                     <>Browsing <span className="font-extrabold" style={{ color: 'var(--theme-secondary-light)' }}>{genres.find(g => g.id === selectedGenreId)?.name || 'Genre'}</span> movies</>
                                 )}
                             </>
+                        ) : (searchValues.movieQuery || searchValues.starQuery || searchValues.directorQuery || searchValues.yearQuery) ? (
+                            <>Search results</>
+                        ) : (
+                            <>Browsing movies...</>
                         )}
                     </h2>
                 </div>
             )}
 
             
-            {data && <MovieListGrid movies={data} />}
+            {data && <MovieListGrid movies={data} onGenreClick={handleGenreChange} />}
             
             {/* Bottom Pagination Controls */}
             <div className="container mx-auto px-4 mt-8">
