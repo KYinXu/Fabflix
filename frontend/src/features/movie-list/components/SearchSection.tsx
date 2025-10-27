@@ -1,15 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import SearchBar from './SearchBar';
 import YearDropdown from './YearDropdown';
+import { SearchState } from '@/types/session';
 
 interface SearchSectionProps {
     onSearch: (movieQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => void;
-    initialValues?: {
-        movieQuery: string;
-        starQuery: string;
-        directorQuery: string;
-        yearQuery: string;
-    };
+    initialValues?: SearchState;
 }
 
 const SearchSection: React.FC<SearchSectionProps> = ({ onSearch, initialValues }) => {
@@ -17,6 +13,16 @@ const SearchSection: React.FC<SearchSectionProps> = ({ onSearch, initialValues }
     const [starSearch, setStarSearch] = useState(initialValues?.starQuery || '');
     const [directorSearch, setDirectorSearch] = useState(initialValues?.directorQuery || '');
     const [yearSearch, setYearSearch] = useState(initialValues?.yearQuery || '');
+
+    // Update state when initialValues change
+    useEffect(() => {
+        if (initialValues) {
+            setMovieSearch(initialValues.movieQuery || '');
+            setStarSearch(initialValues.starQuery || '');
+            setDirectorSearch(initialValues.directorQuery || '');
+            setYearSearch(initialValues.yearQuery || '');
+        }
+    }, [initialValues]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();

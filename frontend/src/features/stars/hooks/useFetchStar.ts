@@ -14,7 +14,6 @@ export const useFetchStar = (starId: string): UseFetchStarReturn => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchStar = async () => {
-      console.log(starId);
     try {
       setLoading(true);
       setError(null);

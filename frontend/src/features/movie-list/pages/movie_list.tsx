@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useFetchMovieList } from "../hooks/useFetchMovieList";
 import { useFetchGenres } from "../hooks/useFetchGenres";
 import { useSessionState } from "@/hooks/useSessionState";
+import { CurrentState, createSearchState, createLetterBrowseState, createGenreBrowseState, createSortState, createPageSizeState, createBrowseTypeState } from '@/types/session';
 import MovieListGrid from '../components/MovieListGrid';
 import SearchSection from '../components/SearchSection';
 import BrowseSection from '../components/BrowseSection';
@@ -17,7 +18,19 @@ const MovieList: React.FC = () => {
     const [browseType, setBrowseType] = useState<'title' | 'genre'>('title');
     const [selectedLetter, setSelectedLetter] = useState<string>('All');
     const [selectedGenreId, setSelectedGenreId] = useState<number | null>(null);
-    const [hasInitialized, setHasInitialized] = useState(false);
+    const hasLoadedRef = useRef(false);
+    
+    // Helper function to get current state
+    const getCurrentState = (): CurrentState => ({
+        browseType,
+        selectedLetter,
+        selectedGenreId,
+        searchValues,
+        sortCriteria,
+        sortOrder,
+        pageSize,
+        currentPage
+    });
     const [searchValues, setSearchValues] = useState({
         movieQuery: '',
         starQuery: '',
@@ -28,7 +41,8 @@ const MovieList: React.FC = () => {
     // Load session state on mount
     useEffect(() => {
         const loadSessionState = async () => {
-            if (!hasInitialized) {
+            if (!hasLoadedRef.current) {
+                hasLoadedRef.current = true;
                 const sessionState = await loadState();
                 if (sessionState) {
                     // Restore browse type and selections
@@ -37,30 +51,28 @@ const MovieList: React.FC = () => {
                     setSelectedGenreId(sessionState.selectedGenreId);
                     setSearchValues(sessionState.searchState);
                     
-                    // Restore sort settings
-                    if (sessionState.sortCriteria) {
-                        setSortCriteria(sessionState.sortCriteria);
-                    }
-                    if (sessionState.sortOrder) {
-                        setSortOrder(sessionState.sortOrder);
-                    }
-                    if (sessionState.pageSize) {
-                        setPageSize(sessionState.pageSize);
-                    }
+                    // Note: Sort settings and page size will be restored by the actual query functions
+                    // to avoid triggering multiple fetchMovie calls
                     
-                    // Apply the restored state
-                    if (sessionState.browseType === 'genre' && sessionState.selectedGenreId) {
-                        browseByGenre(sessionState.selectedGenreId);
-                    } else if (sessionState.browseType === 'title') {
-                        browseMovies(sessionState.selectedLetter);
-                    } else if (sessionState.searchState.movieQuery || sessionState.searchState.starQuery || 
-                               sessionState.searchState.directorQuery || sessionState.searchState.yearQuery) {
+                    // Apply the restored state based on search state
+                    if (sessionState.searchState.movieQuery || sessionState.searchState.starQuery || 
+                        sessionState.searchState.directorQuery || sessionState.searchState.yearQuery) {
+                        // Restore search results
                         searchMovies(
                             sessionState.searchState.movieQuery,
                             sessionState.searchState.starQuery,
                             sessionState.searchState.directorQuery,
                             sessionState.searchState.yearQuery
                         );
+                    } else if (sessionState.browseType === 'genre' && sessionState.selectedGenreId) {
+                        // Restore genre browse
+                        browseByGenre(sessionState.selectedGenreId);
+                    } else if (sessionState.browseType === 'title' && sessionState.selectedLetter && sessionState.selectedLetter !== 'All') {
+                        // Restore title browse (only if not 'All')
+                        browseMovies(sessionState.selectedLetter);
+                    } else if (sessionState.browseType === 'title' && sessionState.selectedLetter === 'All') {
+                        // Default browse all movies
+                        browseMovies('All');
                     }
                 } else {
                     // Handle URL parameters if no session state
@@ -73,14 +85,16 @@ const MovieList: React.FC = () => {
                             setSelectedLetter('');
                             browseByGenre(genreId);
                         }
+                    } else {
+                        // No session state and no URL params - load default movies
+                        browseMovies('All');
                     }
                 }
-                setHasInitialized(true);
             }
         };
         
         loadSessionState();
-    }, [hasInitialized, loadState, browseByGenre, browseMovies, searchMovies, setSortCriteria, setSortOrder, setPageSize, searchParams]);
+    }, []); // Empty dependency array - only run once on mount
     
     const handleSearch = async (movieQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => {
         // Search movies by title, star, director, and year (empty strings show all movies)
@@ -92,120 +106,55 @@ const MovieList: React.FC = () => {
         const newSearchValues = { movieQuery, starQuery, directorQuery, yearQuery };
         setSearchValues(newSearchValues);
         
-        await saveState({
-            browseType: 'title',
-            selectedLetter: 'All',
-            selectedGenreId: null,
-            searchState: newSearchValues,
-            sortCriteria,
-            sortOrder,
-            pageSize,
-            currentPage
-        });
+        const stateToSave = createSearchState(getCurrentState(), newSearchValues);
+        await saveState(stateToSave);
     };
 
-    const handleBrowseTypeChange = async (type: 'title' | 'genre') => {
-        setBrowseType(type);
-        if (type === 'title') {
-            browseMovies('All');
-            setSelectedLetter('All');
-            setSelectedGenreId(null);
-            
-            await saveState({
-                browseType: type,
-                selectedLetter: 'All',
-                selectedGenreId: null,
-                searchState: searchValues,
-                sortCriteria,
-                sortOrder,
-                pageSize,
-                currentPage
-            });
-        } else {
-            setSelectedLetter('');
-            
-            await saveState({
-                browseType: type,
-                selectedLetter: '',
-                selectedGenreId: null,
-                searchState: searchValues,
-                sortCriteria,
-                sortOrder,
-                pageSize,
-                currentPage
-            });
-        }
-    };
 
     const handleLetterChange = async (letter: string) => {
-        // Only trigger browse if we're on the title tab
-        if (browseType === 'title') {
-            browseMovies(letter);
-            setSelectedLetter(letter);
-            setSelectedGenreId(null);
-            
-            await saveState({
-                browseType,
-                selectedLetter: letter,
-                selectedGenreId: null,
-                searchState: searchValues,
-                sortCriteria,
-                sortOrder,
-                pageSize,
-                currentPage
-            });
-        }
+        // Always trigger browse when letter is clicked
+        browseMovies(letter);
+        setBrowseType('title');
+        setSelectedLetter(letter);
+        setSelectedGenreId(null);
+        
+        await saveState(createLetterBrowseState(getCurrentState(), letter));
     };
 
     const handleGenreChange = async (genreId: number) => {
-        // Only trigger browse if we're on the genre tab
-        if (browseType === 'genre') {
-            browseByGenre(genreId);
-            setSelectedGenreId(genreId);
-            setSelectedLetter('');
-            
-            await saveState({
-                browseType,
-                selectedLetter: '',
-                selectedGenreId: genreId,
-                searchState: searchValues,
-                sortCriteria,
-                sortOrder,
-                pageSize,
-                currentPage
-            });
-        }
+        // Always trigger browse when genre is clicked
+        browseByGenre(genreId);
+        setBrowseType('genre');
+        setSelectedGenreId(genreId);
+        setSelectedLetter('');
+        
+        await saveState(createGenreBrowseState(getCurrentState(), genreId));
     };
 
     const handleSortChange = async (newSortCriteria: string, newSortOrder: string) => {
         setSortCriteria(newSortCriteria);
         setSortOrder(newSortOrder);
         
-        await saveState({
-            browseType,
-            selectedLetter,
-            selectedGenreId,
-            searchState: searchValues,
-            sortCriteria: newSortCriteria,
-            sortOrder: newSortOrder,
-            pageSize,
-            currentPage
-        });
+        await saveState(createSortState(getCurrentState(), newSortCriteria, newSortOrder));
     };
 
     const handlePageSizeChange = async (newPageSize: number) => {
         setPageSize(newPageSize);
         
-        await saveState({
-            browseType,
-            selectedLetter,
-            selectedGenreId,
-            searchState: searchValues,
-            sortCriteria,
-            sortOrder,
-            pageSize: newPageSize,
-            currentPage
-        });
+        await saveState(createPageSizeState(getCurrentState(), newPageSize));
+    };
+
+    const handleBrowseTypeChange = async (type: 'title' | 'genre') => {
+        setBrowseType(type);
+        if (type === 'title') {
+            setSelectedLetter('All');
+            setSelectedGenreId(null);
+        } else {
+            setSelectedLetter('');
+            setSelectedGenreId(null);
+        }
+        
+        await saveState(createBrowseTypeState(getCurrentState(), type));
     };
 
 
@@ -226,9 +175,9 @@ const MovieList: React.FC = () => {
                 <SearchSection onSearch={handleSearch} initialValues={searchValues} />
                 
                 <BrowseSection 
-                    onBrowseTypeChange={handleBrowseTypeChange}
                     onLetterChange={handleLetterChange}
                     onGenreChange={handleGenreChange}
+                    onBrowseTypeChange={handleBrowseTypeChange}
                     genres={genres}
                     initialBrowseType={browseType}
                     initialSelectedLetter={selectedLetter}
@@ -278,7 +227,6 @@ const MovieList: React.FC = () => {
             <SearchSection onSearch={handleSearch} initialValues={searchValues} />
             
             <BrowseSection 
-                onBrowseTypeChange={handleBrowseTypeChange}
                 onLetterChange={handleLetterChange}
                 onGenreChange={handleGenreChange}
                 genres={genres}
@@ -313,21 +261,30 @@ const MovieList: React.FC = () => {
             </div>
             
             {/* Display current filter */}
-            {(selectedLetter || selectedGenreId !== null) && (
+            {(selectedLetter || selectedGenreId !== null || (searchValues.movieQuery || searchValues.starQuery || searchValues.directorQuery || searchValues.yearQuery)) && 
+             !(browseType === 'title' && selectedLetter === 'All') && (
                 <div className="container mx-auto px-4 mb-6">
                     <h2 className="text-4xl font-bold text-center" style={{ color: 'var(--theme-text-primary)' }}>
-                        {browseType === 'title' && selectedLetter && (
-                            <>Browsing movies starting with "<span className="font-extrabold" style={{ color: 'var(--theme-secondary-light)' }}>{selectedLetter === 'All' ? 'All Letters' : selectedLetter}</span>"</>
-                        )}
-                        {browseType === 'genre' && selectedGenreId !== null && genres && (
-                            <>Browsing <span className="font-extrabold" style={{ color: 'var(--theme-secondary-light)' }}>{genres.find(g => g.id === selectedGenreId)?.name || 'Genre'}</span> movies</>
+                        {(browseType === 'title' && selectedLetter && selectedLetter !== 'All') || (browseType === 'genre' && selectedGenreId !== null) ? (
+                            <>
+                                {browseType === 'title' && selectedLetter && (
+                                    <>Browsing movies starting with "<span className="font-extrabold" style={{ color: 'var(--theme-secondary-light)' }}>{selectedLetter}</span>"</>
+                                )}
+                                {browseType === 'genre' && selectedGenreId !== null && genres && (
+                                    <>Browsing <span className="font-extrabold" style={{ color: 'var(--theme-secondary-light)' }}>{genres.find(g => g.id === selectedGenreId)?.name || 'Genre'}</span> movies</>
+                                )}
+                            </>
+                        ) : (searchValues.movieQuery || searchValues.starQuery || searchValues.directorQuery || searchValues.yearQuery) ? (
+                            <>Search results</>
+                        ) : (
+                            <>Browsing movies...</>
                         )}
                     </h2>
                 </div>
             )}
 
             
-            {data && <MovieListGrid movies={data} />}
+            {data && <MovieListGrid movies={data} onGenreClick={handleGenreChange} />}
             
             {/* Bottom Pagination Controls */}
             <div className="container mx-auto px-4 mt-8">

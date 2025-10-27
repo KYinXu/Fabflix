@@ -3,6 +3,7 @@ import type { Movie } from '@/types/types';
 import CastMembersList from './CastMembersList';
 import RatingsBar from './RatingsBar';
 import GenresList from './GenresList';
+import AddToCartButton from '@/components/AddToCartButton';
 
 interface InfoDisplayProps {
   movie: Movie;
@@ -12,8 +13,11 @@ const InfoDisplay: React.FC<InfoDisplayProps> = ({ movie }) => {
   return (
     <div className="space-y-8">
       {/* Header Section */}
-      <div className="pb-6" style={{ borderBottom: '4px solid var(--theme-primary)' }}>
-        <h1 className="text-5xl font-bold mb-4" style={{ color: 'var(--theme-text-primary)' }}>{movie.title}</h1>
+      <div className="pb-6" style={{ borderBottom: '4px solid var(--theme-secondary)' }}>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-5xl font-bold" style={{ color: 'var(--theme-text-primary)' }}>{movie.title}</h1>
+          <AddToCartButton movie={movie} />
+        </div>
         
         {/* Genres Section */}
         {movie.genres && movie.genres.length > 0 && (

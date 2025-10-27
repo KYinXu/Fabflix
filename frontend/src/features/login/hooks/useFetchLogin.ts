@@ -30,17 +30,13 @@ export const useFetchLogin = () : useFetchReturn => {
             setLoading(true);
             setError(null);
 
-            console.log("Sent fields: ", email, password);
 
             const response = await fetch(BASE_URL, postRequest);
-            console.log("PR: ", response);
 
             if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-            console.log("POST received by backend");
 
             const jsonResponse = await response.json();
-            console.log("JSON Response:", jsonResponse);
 
             setData(jsonResponse);
         } catch (err: any) {

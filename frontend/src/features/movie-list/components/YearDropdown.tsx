@@ -6,11 +6,10 @@ interface YearDropdownProps {
 }
 
 const YearDropdown: React.FC<YearDropdownProps> = ({ value, onChange }) => {
-    const currentYear = new Date().getFullYear();
     const years: number[] = [];
     
-    // Generate years from current year back to 100 years ago
-    for (let year = currentYear; year >= currentYear - 100; year--) {
+    // Generate years from 2001 to 2017
+    for (let year = 2017; year >= 2001; year--) {
         years.push(year);
     }
 

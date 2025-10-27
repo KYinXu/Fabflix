@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type {Movie} from "@/types/types";
+import { QueryParams, FetchParams } from '@/types/session';
 
 interface useFetchReturn {
     data: Movie[] | null;
@@ -23,7 +24,7 @@ interface useFetchReturn {
 export const useFetchMovieList = () : useFetchReturn => {
     // State variables
     const [data, setData] = useState<Movie[] | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState<number>(0);
     const [hasNextPage, setHasNextPage] = useState<boolean>(false);
@@ -32,14 +33,7 @@ export const useFetchMovieList = () : useFetchReturn => {
     const [sortOrder, setSortOrderState] = useState<string>('DESC');
     
     // Track query parameters for pagination
-    const [lastQuery, setLastQuery] = useState<{
-        titleQuery: string;
-        starQuery: string;
-        directorQuery: string;
-        yearQuery: string;
-        letter: string;
-        genreId: number | null;
-    }>({
+    const [lastQuery, setLastQuery] = useState<QueryParams>({
         titleQuery: '',
         starQuery: '',
         directorQuery: '',
@@ -48,62 +42,88 @@ export const useFetchMovieList = () : useFetchReturn => {
         genreId: null
     });
 
+    // Helper function to create QueryParams from individual parameters
+    const createQueryParams = (
+        titleQuery: string,
+        starQuery: string,
+        directorQuery: string,
+        yearQuery: string,
+        letter: string,
+        genreId: number | null
+    ): QueryParams => ({
+        titleQuery,
+        starQuery,
+        directorQuery,
+        yearQuery,
+        letter,
+        genreId
+    });
+
+    // Helper function to create FetchParams from individual parameters
+    const createFetchParams = (
+        queryParams: QueryParams,
+        page: number,
+        pageSize: number,
+        sortCriteria: string,
+        sortOrder: string
+    ): FetchParams => ({
+        ...queryParams,
+        page,
+        pageSize,
+        sortCriteria,
+        sortOrder
+    });
+
+    // Helper function to build query parameters
+    const buildQueryParams = (fetchParams: FetchParams): URLSearchParams => {
+        const params = new URLSearchParams();
+        
+        // Search parameters
+        if (fetchParams.titleQuery.trim()) params.append('title', fetchParams.titleQuery.trim());
+        if (fetchParams.starQuery.trim()) params.append('star', fetchParams.starQuery.trim());
+        if (fetchParams.directorQuery.trim()) params.append('director', fetchParams.directorQuery.trim());
+        if (fetchParams.yearQuery.trim()) params.append('year', fetchParams.yearQuery.trim());
+        
+        // Browse parameters
+        if (fetchParams.letter.trim()) params.append('letter', fetchParams.letter.trim());
+        if (fetchParams.genreId !== null) params.append('genreId', fetchParams.genreId.toString());
+        
+        // Pagination parameters
+        if (fetchParams.page > 0) params.append('page', fetchParams.page.toString());
+        if (fetchParams.pageSize !== 25) params.append('pageSize', fetchParams.pageSize.toString());
+        
+        // Sort parameters
+        if (fetchParams.sortCriteria === 'r.ratings') {
+            params.append('sortCriteria', 'r.ratings');
+            params.append('tieBreaker', 'title');
+        } else {
+            params.append('sortCriteria', fetchParams.sortCriteria);
+            if (fetchParams.sortCriteria === 'm.title') {
+                params.append('tieBreaker', 'ratings');
+            }
+        }
+        if (fetchParams.sortOrder !== 'DESC') params.append('sortOrder', fetchParams.sortOrder);
+        
+        return params;
+    };
+
     // Data Fetching
-    const fetchMovie = async (titleQuery: string = '', starQuery: string = '', directorQuery: string = '', yearQuery: string = '', letter: string = '', genreId: number | null = null, page: number = 0, size: number = 25, criteria: string = sortCriteria, order: string = sortOrder) => {
+    const fetchMovie = async (fetchParams: FetchParams) => {
         setLoading(true);
         setError(null);
         try{
             const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/movies`;
-            // Build query params
-            const params = new URLSearchParams();
-            if (titleQuery.trim()) {
-                params.append('title', titleQuery.trim());
-            }
-            if (starQuery.trim()) {
-                params.append('star', starQuery.trim());
-            }
-            if (directorQuery.trim()) {
-                params.append('director', directorQuery.trim());
-            }
-            if (yearQuery.trim()) {
-                params.append('year', yearQuery.trim());
-            }
-            if (letter.trim()) {
-                params.append('letter', letter.trim());
-            }
-            if (genreId !== null) {
-                params.append('genreId', genreId.toString());
-            }
-            if (page > 0) {
-                params.append('page', page.toString());
-            }
-            if (size !== 25) {
-                params.append('pageSize', size.toString());
-            }
-            if (criteria === 'r.ratings') {
-                params.append('sortCriteria', 'r.ratings');
-                params.append('tieBreaker', 'title');
-            } else {
-                params.append('sortCriteria', criteria);
-                if (criteria === 'm.title') {
-                    params.append('tieBreaker', 'ratings');
-                }
-            }
-            if (order !== 'DESC') {
-                params.append('sortOrder', order);
-            }
+            const params = buildQueryParams(fetchParams);
             const url = params.toString() ? `${BASE_URL}?${params.toString()}` : BASE_URL;
 
             const fetching = await fetch(url, {credentials: 'include'})
             const fetchedData = await fetching.json() // converts to JSON
-            console.log(fetchedData) // logs JSON data
             setData(fetchedData);
             
             // Determine if there's a next page (if we got exactly size results, there might be more)
-            setHasNextPage(fetchedData.length === size);
+            setHasNextPage(fetchedData.length === fetchParams.pageSize);
         }
         catch (error){ // error handling for crashes
-            console.log(error)
             const message =
                 error instanceof Error ? error.message : "An error has occurred";
             setError(message);
@@ -117,110 +137,73 @@ export const useFetchMovieList = () : useFetchReturn => {
     // Search function for parent component
     const searchMovies = useCallback(async (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => {
         setCurrentPage(0);
-        setLastQuery({ titleQuery, starQuery, directorQuery, yearQuery, letter: '', genreId: null });
-        await fetchMovie(titleQuery, starQuery, directorQuery, yearQuery, '', null, 0, pageSize);
-    }, [pageSize]);
+        const queryParams = createQueryParams(titleQuery, starQuery, directorQuery, yearQuery, '', null);
+        const fetchParams = createFetchParams(queryParams, 0, pageSize, sortCriteria, sortOrder);
+        setLastQuery(queryParams);
+        await fetchMovie(fetchParams);
+    }, [pageSize, sortCriteria, sortOrder]);
 
     // Browse function for browsing by letter
     const browseMovies = useCallback(async (letter: string) => {
         setCurrentPage(0);
-        setLastQuery({ titleQuery: '', starQuery: '', directorQuery: '', yearQuery: '', letter, genreId: null });
-        await fetchMovie('', '', '', '', letter, null, 0, pageSize);
-    }, [pageSize]);
+        const queryParams = createQueryParams('', '', '', '', letter, null);
+        const fetchParams = createFetchParams(queryParams, 0, pageSize, sortCriteria, sortOrder);
+        setLastQuery(queryParams);
+        await fetchMovie(fetchParams);
+    }, [pageSize, sortCriteria, sortOrder]);
 
     // Browse function for browsing by genre
     const browseByGenre = useCallback(async (genreId: number) => {
         setCurrentPage(0);
-        setLastQuery({ titleQuery: '', starQuery: '', directorQuery: '', yearQuery: '', letter: '', genreId });
-        await fetchMovie('', '', '', '', '', genreId, 0, pageSize);
-    }, [pageSize]);
+        const queryParams = createQueryParams('', '', '', '', '', genreId);
+        const fetchParams = createFetchParams(queryParams, 0, pageSize, sortCriteria, sortOrder);
+        setLastQuery(queryParams);
+        await fetchMovie(fetchParams);
+    }, [pageSize, sortCriteria, sortOrder]);
 
     // Pagination functions
     const goToNextPage = useCallback(async () => {
         const nextPage = currentPage + 1;
         setCurrentPage(nextPage);
-        await fetchMovie(
-            lastQuery.titleQuery,
-            lastQuery.starQuery,
-            lastQuery.directorQuery,
-            lastQuery.yearQuery,
-            lastQuery.letter,
-            lastQuery.genreId,
-            nextPage,
-            pageSize
-        );
-    }, [currentPage, lastQuery, pageSize]);
+        const fetchParams = createFetchParams(lastQuery, nextPage, pageSize, sortCriteria, sortOrder);
+        await fetchMovie(fetchParams);
+    }, [currentPage, lastQuery, pageSize, sortCriteria, sortOrder]);
 
     const goToPreviousPage = useCallback(async () => {
         if (currentPage > 0) {
             const prevPage = currentPage - 1;
             setCurrentPage(prevPage);
-            await fetchMovie(
-                lastQuery.titleQuery,
-                lastQuery.starQuery,
-                lastQuery.directorQuery,
-                lastQuery.yearQuery,
-                lastQuery.letter,
-                lastQuery.genreId,
-                prevPage,
-                pageSize
-            );
+            const fetchParams = createFetchParams(lastQuery, prevPage, pageSize, sortCriteria, sortOrder);
+            await fetchMovie(fetchParams);
         }
-    }, [currentPage, lastQuery, pageSize]);
+    }, [currentPage, lastQuery, pageSize, sortCriteria, sortOrder]);
 
     const setPageSize = useCallback(async (size: number) => {
         setPageSizeState(size);
         setCurrentPage(0); // Reset to first page when changing page size
-        await fetchMovie(
-            lastQuery.titleQuery,
-            lastQuery.starQuery,
-            lastQuery.directorQuery,
-            lastQuery.yearQuery,
-            lastQuery.letter,
-            lastQuery.genreId,
-            0,
-            size
-        );
+        const fetchParams = createFetchParams(lastQuery, 0, size, sortCriteria, sortOrder);
+        await fetchMovie(fetchParams);
     }, [lastQuery, sortCriteria, sortOrder]);
 
     const setSortCriteria = useCallback(async (criteria: string) => {
         setSortCriteriaState(criteria);
         setCurrentPage(0); // Reset to first page when changing sort
-        await fetchMovie(
-            lastQuery.titleQuery,
-            lastQuery.starQuery,
-            lastQuery.directorQuery,
-            lastQuery.yearQuery,
-            lastQuery.letter,
-            lastQuery.genreId,
-            0,
-            pageSize,
-            criteria,
-            sortOrder
-        );
+        const fetchParams = createFetchParams(lastQuery, 0, pageSize, criteria, sortOrder);
+        await fetchMovie(fetchParams);
     }, [lastQuery, pageSize, sortOrder]);
 
     const setSortOrder = useCallback(async (order: string) => {
         setSortOrderState(order);
         setCurrentPage(0); // Reset to first page when changing sort
-        await fetchMovie(
-            lastQuery.titleQuery,
-            lastQuery.starQuery,
-            lastQuery.directorQuery,
-            lastQuery.yearQuery,
-            lastQuery.letter,
-            lastQuery.genreId,
-            0,
-            pageSize,
-            sortCriteria,
-            order
-        );
+        const fetchParams = createFetchParams(lastQuery, 0, pageSize, sortCriteria, order);
+        await fetchMovie(fetchParams);
     }, [lastQuery, pageSize, sortCriteria]);
 
     // Run & Return States
-    useEffect(() => {
-        fetchMovie();
-    }, []); // no argument, as this page is static
+    // Removed automatic fetchMovie() call - let session loading handle initial query
+    // useEffect(() => {
+    //     fetchMovie();
+    // }, []); // no argument, as this page is static
 
     return { data, loading, error, currentPage, hasNextPage, pageSize, sortCriteria, sortOrder, searchMovies, browseMovies, browseByGenre, goToNextPage, goToPreviousPage, setPageSize, setSortCriteria, setSortOrder };
 }

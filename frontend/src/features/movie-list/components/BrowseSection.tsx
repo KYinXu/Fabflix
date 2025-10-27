@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import type { Genre } from "@/types/types";
 
 interface BrowseSectionProps {
-    onBrowseTypeChange: (type: 'title' | 'genre') => void;
     onLetterChange: (letter: string) => void;
     onGenreChange: (genreId: number) => void;
+    onBrowseTypeChange?: (type: 'title' | 'genre') => void;
     genres?: Genre[] | null;
     initialBrowseType?: 'title' | 'genre';
     initialSelectedLetter?: string;
@@ -14,6 +14,7 @@ interface BrowseSectionProps {
 const BrowseSection: React.FC<BrowseSectionProps> = ({
     onLetterChange, 
     onGenreChange, 
+    onBrowseTypeChange,
     genres,
     initialBrowseType,
     initialSelectedLetter,
@@ -25,13 +26,13 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({
 
     // Sync internal state with props when they change
     useEffect(() => {
-        if (initialBrowseType) {
+        if (initialBrowseType !== undefined) {
             setActiveTab(initialBrowseType);
         }
     }, [initialBrowseType]);
 
     useEffect(() => {
-        if (initialSelectedLetter) {
+        if (initialSelectedLetter !== undefined) {
             setSelectedLetter(initialSelectedLetter);
         }
     }, [initialSelectedLetter]);
@@ -50,6 +51,10 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({
         } else {
             setSelectedLetter('');
             setSelectedGenreId(null);
+        }
+        // Notify parent about tab change
+        if (onBrowseTypeChange) {
+            onBrowseTypeChange(tab);
         }
         // Don't trigger queries immediately - only update the UI state
     };

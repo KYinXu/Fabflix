@@ -1,22 +1,5 @@
 import { useState } from 'react';
-
-interface SearchState {
-    movieQuery: string;
-    starQuery: string;
-    directorQuery: string;
-    yearQuery: string;
-}
-
-interface SessionState {
-    browseType: 'title' | 'genre';
-    selectedLetter: string;
-    selectedGenreId: number | null;
-    searchState: SearchState;
-    sortCriteria: string;
-    sortOrder: string;
-    pageSize: number;
-    currentPage: number;
-}
+import { SessionState } from '@/types/session';
 
 interface UseSessionStateReturn {
     saveState: (state: SessionState) => Promise<void>;
@@ -45,8 +28,8 @@ export const useSessionState = (): UseSessionStateReturn => {
             });
 
             if (!response.ok) {
-                //const errorData = await response.json();
-                //throw new Error(errorData.message || 'Failed to save state');
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to save state');
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unknown error occurred during save');
@@ -70,8 +53,8 @@ export const useSessionState = (): UseSessionStateReturn => {
             }
 
             if (!response.ok) {
-                //const errorData = await response.json();
-                //throw new Error(errorData.message || 'Failed to load state');
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to load state');
             }
 
             const data = await response.json();

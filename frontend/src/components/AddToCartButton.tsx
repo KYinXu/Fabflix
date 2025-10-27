@@ -18,26 +18,35 @@ function AddToCartButton({ movie } : { movie: any }) {
                     },
                 ])
             };
-            const response = await fetch(BASE_URL, postRequest);
-            const jsonResponse = await response.json();
-            console.log("RESPONSE: ", jsonResponse)
+            await fetch(BASE_URL, postRequest);
 
         } catch (err: any) {
-            console.log(err);
+            console.error('Failed to add item to cart:', err);
         }
     };
 
     return (
-        <div className="flex justify-center mt-6">
-            <button
-                onClick={handleClick}
-                className="px-6 py-3 rounded-lg font-semibold transition-all duration-200
-                           bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500
-                           text-white shadow-lg hover:shadow-xl hover:scale-105"
-            >
-                Add to Cart
-            </button>
-        </div>
+        <button
+            onClick={handleClick}
+            className="px-4 py-2 rounded font-medium transition-colors duration-200 border-2"
+            style={{
+                backgroundColor: 'var(--theme-bg-secondary)',
+                borderColor: 'var(--theme-secondary)',
+                color: 'var(--theme-text-primary)'
+            }}
+            onMouseEnter={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.backgroundColor = 'var(--theme-secondary)';
+                target.style.color = 'white';
+            }}
+            onMouseLeave={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.backgroundColor = 'var(--theme-bg-secondary)';
+                target.style.color = 'var(--theme-text-primary)';
+            }}
+        >
+            Add to Cart
+        </button>
     );
 }
 
