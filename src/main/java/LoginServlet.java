@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.*;
 
+//This is a code freeze for project 2
+
 @WebServlet(name = "LoginServlet", urlPatterns = {"/login"}) // Allows Tomcat to Interpret URL
 public class LoginServlet extends HttpServlet {
     public static final String LOGIN_VERIFICATION_QUERY = """
