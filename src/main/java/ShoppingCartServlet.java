@@ -111,6 +111,89 @@ public class ShoppingCartServlet extends HttpServlet {
         out.flush();
     }
 
+    protected void doDelete(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        try{
+            HttpSession currentSession = request.getSession(false);
+            Map<String, CartItem> shoppingCart = (Map<String, CartItem>) currentSession.getAttribute("cart");
+
+            if (shoppingCart == null) {
+                return;
+            }
+
+            String jsonString = buildJSONString(request).toString();
+            JSONObject jsonObject = new JSONObject(jsonString);
+            String movieId = jsonObject.getString("movieId");
+
+            if (shoppingCart.containsKey(jsonObject.getString("movieId"))) {
+                shoppingCart.remove(movieId);
+            }
+
+            currentSession.setAttribute("cart", shoppingCart);
+
+            double totalPrice = 0;
+            for (CartItem item : shoppingCart.values()) {
+                totalPrice += item.getPrice() * item.getQuantity();
+            }
+
+            JSONObject cartResponse = buildJSONCartResponse(shoppingCart, totalPrice);
+
+            setMimeType(response);
+            PrintWriter reactOutput = response.getWriter();
+            reactOutput.write(cartResponse.toString());
+            reactOutput.flush();
+
+        } catch(Exception e){
+            e.printStackTrace();
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
+        }
+    }
+
+    protected void doPut(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        try{
+            HttpSession currentSession = request.getSession(false);
+            Map<String, CartItem> shoppingCart = (Map<String, CartItem>) currentSession.getAttribute("cart");
+
+            if (shoppingCart == null) {
+                return;
+            }
+
+            String jsonString = buildJSONString(request).toString();
+            JSONObject jsonObject = new JSONObject(jsonString);
+            String movieId = jsonObject.getString("movieId");
+            int quantity = jsonObject.getInt("quantity");
+
+            if (shoppingCart.containsKey(jsonObject.getString("movieId"))) {
+                CartItem existingItem = shoppingCart.get(jsonObject.getString("movieId"));
+                existingItem.setQuantity(quantity);
+            }
+
+            if (quantity <= 0) {
+                shoppingCart.remove(movieId);
+            }
+
+            currentSession.setAttribute("cart", shoppingCart);
+
+            double totalPrice = 0;
+            for (CartItem item : shoppingCart.values()) {
+                totalPrice += item.getPrice() * item.getQuantity();
+            }
+
+            JSONObject cartResponse = buildJSONCartResponse(shoppingCart, totalPrice);
+
+            setMimeType(response);
+            PrintWriter reactOutput = response.getWriter();
+            reactOutput.write(cartResponse.toString());
+            reactOutput.flush();
+
+        } catch(Exception e){
+            e.printStackTrace();
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
+        }
+    }
+
     protected JSONObject buildJSONCartResponse(Map<String, CartItem> shoppingCart, double totalPrice){
         JSONObject cartResponse = new JSONObject();
         JSONObject currentCart = new JSONObject();

@@ -31,6 +31,7 @@ export const useFetchShoppingCart = (): useFetchReturn => {
             setLoading(true);
             setError(null);
 
+            // @ts-ignore
             const response = await fetch(BASE_URL, getRequest);
             console.log("PR: ", response);
 
