@@ -11,8 +11,7 @@ interface BrowseSectionProps {
     initialSelectedGenreId?: number | null;
 }
 
-const BrowseSection: React.FC<BrowseSectionProps> = ({ 
-    onBrowseTypeChange, 
+const BrowseSection: React.FC<BrowseSectionProps> = ({
     onLetterChange, 
     onGenreChange, 
     genres,
@@ -48,12 +47,11 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({
         if (tab === 'title') {
             setSelectedLetter('All');
             setSelectedGenreId(null);
-            onLetterChange('All');
         } else {
             setSelectedLetter('');
             setSelectedGenreId(null);
         }
-        onBrowseTypeChange(tab);
+        // Don't trigger queries immediately - only update the UI state
     };
 
     const handleLetterClick = (letter: string) => {
@@ -75,32 +73,24 @@ const BrowseSection: React.FC<BrowseSectionProps> = ({
             <div className="max-w-7xl mx-auto">
                 {/* Tabs */}
                 <div className="flex justify-center mb-6">
-                    <div className="inline-flex rounded-lg p-1" style={{ backgroundColor: 'var(--theme-bg-tertiary)' }}>
+                    <div className="flex gap-8">
                         <button
                             onClick={() => handleTabChange('title')}
-                            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
+                            className={`px-4 py-2 font-semibold transition-all duration-200 ${
                                 activeTab === 'title'
-                                    ? 'text-white shadow-lg'
-                                    : 'hover:opacity-80'
+                                    ? 'text-white font-bold underline decoration-2 underline-offset-4'
+                                    : 'text-gray-400 hover:text-white'
                             }`}
-                            style={{
-                                backgroundColor: activeTab === 'title' ? 'var(--theme-primary)' : 'transparent',
-                                color: activeTab === 'title' ? 'var(--theme-text-primary)' : 'var(--theme-text-secondary)'
-                            }}
                         >
                             Browse by Title
                         </button>
                         <button
                             onClick={() => handleTabChange('genre')}
-                            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
+                            className={`px-4 py-2 font-semibold transition-all duration-200 ${
                                 activeTab === 'genre'
-                                    ? 'text-white shadow-lg'
-                                    : 'hover:opacity-80'
+                                    ? 'text-white font-bold underline decoration-2 underline-offset-4'
+                                    : 'text-gray-400 hover:text-white'
                             }`}
-                            style={{
-                                backgroundColor: activeTab === 'genre' ? 'var(--theme-primary)' : 'transparent',
-                                color: activeTab === 'genre' ? 'var(--theme-text-primary)' : 'var(--theme-text-secondary)'
-                            }}
                         >
                             Browse by Genre
                         </button>
