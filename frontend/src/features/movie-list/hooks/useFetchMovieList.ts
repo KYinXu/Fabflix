@@ -121,7 +121,7 @@ export const useFetchMovieList = () : useFetchReturn => {
             setData(fetchedData);
             
             // Determine if there's a next page (if we got exactly size results, there might be more)
-            setHasNextPage(fetchedData.length === size);
+            setHasNextPage(fetchedData.length === fetchParams.pageSize);
         }
         catch (error){ // error handling for crashes
             const message =
