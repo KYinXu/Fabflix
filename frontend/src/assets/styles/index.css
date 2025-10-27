@@ -60,7 +60,7 @@ html {
 .group:hover {
   background-color: var(--theme-bg-hover) !important;
 }
-
 .group:not(:hover) {
   transition: background-color 500ms ease-out !important; /* Slow transition out */
 }
+
