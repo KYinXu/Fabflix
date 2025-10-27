@@ -11,9 +11,9 @@ interface useFetchReturn {
     pageSize: number;
     sortCriteria: string;
     sortOrder: string;
-    searchMovies: (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => Promise<void>;
-    browseMovies: (letter: string) => Promise<void>;
-    browseByGenre: (genreId: number) => Promise<void>;
+    searchMovies: (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string, initialPage?: number) => Promise<void>;
+    browseMovies: (letter: string, initialPage?: number) => Promise<void>;
+    browseByGenre: (genreId: number, initialPage?: number) => Promise<void>;
     goToNextPage: () => Promise<void>;
     goToPreviousPage: () => Promise<void>;
     setPageSize: (size: number) => Promise<void>;
@@ -135,28 +135,28 @@ export const useFetchMovieList = () : useFetchReturn => {
     }
 
     // Search function for parent component
-    const searchMovies = useCallback(async (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => {
-        setCurrentPage(0);
+    const searchMovies = useCallback(async (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string, initialPage: number = 0) => {
+        setCurrentPage(initialPage);
         const queryParams = createQueryParams(titleQuery, starQuery, directorQuery, yearQuery, '', null);
-        const fetchParams = createFetchParams(queryParams, 0, pageSize, sortCriteria, sortOrder);
+        const fetchParams = createFetchParams(queryParams, initialPage, pageSize, sortCriteria, sortOrder);
         setLastQuery(queryParams);
         await fetchMovie(fetchParams);
     }, [pageSize, sortCriteria, sortOrder]);
 
     // Browse function for browsing by letter
-    const browseMovies = useCallback(async (letter: string) => {
-        setCurrentPage(0);
+    const browseMovies = useCallback(async (letter: string, initialPage: number = 0) => {
+        setCurrentPage(initialPage);
         const queryParams = createQueryParams('', '', '', '', letter, null);
-        const fetchParams = createFetchParams(queryParams, 0, pageSize, sortCriteria, sortOrder);
+        const fetchParams = createFetchParams(queryParams, initialPage, pageSize, sortCriteria, sortOrder);
         setLastQuery(queryParams);
         await fetchMovie(fetchParams);
     }, [pageSize, sortCriteria, sortOrder]);
 
     // Browse function for browsing by genre
-    const browseByGenre = useCallback(async (genreId: number) => {
-        setCurrentPage(0);
+    const browseByGenre = useCallback(async (genreId: number, initialPage: number = 0) => {
+        setCurrentPage(initialPage);
         const queryParams = createQueryParams('', '', '', '', '', genreId);
-        const fetchParams = createFetchParams(queryParams, 0, pageSize, sortCriteria, sortOrder);
+        const fetchParams = createFetchParams(queryParams, initialPage, pageSize, sortCriteria, sortOrder);
         setLastQuery(queryParams);
         await fetchMovie(fetchParams);
     }, [pageSize, sortCriteria, sortOrder]);

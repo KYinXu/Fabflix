@@ -30,18 +30,20 @@ export const useFetchLogin = () : useFetchReturn => {
             setLoading(true);
             setError(null);
 
-
             const response = await fetch(BASE_URL, postRequest);
-
-            if (!response.ok) throw new Error(`Server error: ${response.status}`);
-
 
             const jsonResponse = await response.json();
 
-            setData(jsonResponse);
+            // Check if login failed
+            if (jsonResponse.status === "failure") {
+                setError("Invalid credentials. Please check your email and password.");
+                setData(jsonResponse);
+            } else {
+                setData(jsonResponse);
+            }
         } catch (err: any) {
             console.error("Login error:", err);
-            setError(err.message || "Unexpected error");
+            setError("An unexpected error occurred. Please try again.");
         } finally {
             setLoading(false);
         }

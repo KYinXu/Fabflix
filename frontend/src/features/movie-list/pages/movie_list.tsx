@@ -3,7 +3,7 @@ import { useSearchParams, useLocation } from 'react-router-dom';
 import { useFetchMovieList } from "../hooks/useFetchMovieList";
 import { useFetchGenres } from "../hooks/useFetchGenres";
 import { useSessionState } from "@/hooks/useSessionState";
-import { CurrentState, createSearchState, createLetterBrowseState, createGenreBrowseState, createSortState, createPageSizeState, createBrowseTypeState } from '@/types/session';
+import { CurrentState, createSearchState, createLetterBrowseState, createGenreBrowseState, createSortState, createPageSizeState, createBrowseTypeState, createPaginationState } from '@/types/session';
 import MovieListGrid from '../components/MovieListGrid';
 import SearchSection from '../components/SearchSection';
 import BrowseSection from '../components/BrowseSection';
@@ -72,20 +72,23 @@ const MovieList: React.FC = () => {
                     // Apply the restored state based on search state
                     if (sessionState.searchState.movieQuery || sessionState.searchState.starQuery || 
                         sessionState.searchState.directorQuery || sessionState.searchState.yearQuery) {
-                        // Restore search results
-                        searchMovies(
+                        // Restore search results with pagination
+                        await searchMovies(
                             sessionState.searchState.movieQuery,
                             sessionState.searchState.starQuery,
                             sessionState.searchState.directorQuery,
-                            sessionState.searchState.yearQuery
+                            sessionState.searchState.yearQuery,
+                            sessionState.currentPage
                         );
                     } else if (sessionState.browseType === 'genre' && sessionState.selectedGenreId) {
-                        // Restore genre browse
-                        browseByGenre(sessionState.selectedGenreId);
+                        // Restore genre browse with pagination
+                        await browseByGenre(sessionState.selectedGenreId, sessionState.currentPage);
                     } else if (sessionState.browseType === 'title' && sessionState.selectedLetter && sessionState.selectedLetter !== 'All') {
-                        // Restore title browse (only if not 'All')
-                        browseMovies(sessionState.selectedLetter);
+                        // Restore title browse with pagination (only if not 'All')
+                        await browseMovies(sessionState.selectedLetter, sessionState.currentPage);
                     }
+                    
+                    // Note: Pagination is now restored by passing the initialPage parameter to the query functions
                 } else {
                     // No meaningful session state - handle URL parameters or load default
                     const genreIdParam = searchParams.get('genreId');
@@ -172,6 +175,16 @@ const MovieList: React.FC = () => {
         await saveState(createBrowseTypeState(getCurrentState(), type));
     };
 
+    const handleNextPage = async () => {
+        await goToNextPage();
+        await saveState(createPaginationState(getCurrentState(), currentPage + 1));
+    };
+
+    const handlePreviousPage = async () => {
+        await goToPreviousPage();
+        await saveState(createPaginationState(getCurrentState(), currentPage - 1));
+    };
+
 
     if (error){
         return (
@@ -215,8 +228,8 @@ const MovieList: React.FC = () => {
                                 currentPage={currentPage}
                                 hasNextPage={hasNextPage}
                                 pageSize={pageSize}
-                                goToPreviousPage={goToPreviousPage}
-                                goToNextPage={goToNextPage}
+                                goToPreviousPage={handlePreviousPage}
+                                goToNextPage={handleNextPage}
                                 setPageSize={handlePageSizeChange}
                                 isLoading={loading}
                             />
@@ -266,8 +279,8 @@ const MovieList: React.FC = () => {
                             currentPage={currentPage}
                             hasNextPage={hasNextPage}
                             pageSize={pageSize}
-                            goToPreviousPage={goToPreviousPage}
-                            goToNextPage={goToNextPage}
+                            goToPreviousPage={handlePreviousPage}
+                            goToNextPage={handleNextPage}
                             setPageSize={handlePageSizeChange}
                             isLoading={loading}
                         />
@@ -308,8 +321,8 @@ const MovieList: React.FC = () => {
                         currentPage={currentPage}
                         hasNextPage={hasNextPage}
                         pageSize={pageSize}
-                        goToPreviousPage={goToPreviousPage}
-                        goToNextPage={goToNextPage}
+                        goToPreviousPage={handlePreviousPage}
+                        goToNextPage={handleNextPage}
                         setPageSize={handlePageSizeChange}
                         isLoading={loading}
                     />

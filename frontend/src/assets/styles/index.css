@@ -24,7 +24,7 @@
   --theme-bg-secondary: #1f2937; /* gray-800 */
   --theme-bg-tertiary: #374151; /* gray-700 */
   --theme-bg-hover: #0f172a; /* slate-900 - darker than gray-800 but not too dark */
-  --theme-bg-card: #ffffff; /* white */
+  --theme-bg-card: #1f2937; /* gray-800 - dark card background */
   
   /* Text Colors */
   --theme-text-primary: #ffffff; /* white */
@@ -34,7 +34,7 @@
   
   /* Border Colors */
   --theme-border-primary: #374151; /* gray-700 */
-  --theme-border-secondary: #e5e7eb; /* gray-200 */
+  --theme-border-secondary: #4b5563; /* gray-600 - darker border for dark mode */
   
   /* Status Colors */
   --theme-success: #10b981; /* emerald-500 */

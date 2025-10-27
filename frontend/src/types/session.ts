@@ -85,3 +85,6 @@ export const createPageSizeState = (currentState: CurrentState, pageSize: number
 
 export const createBrowseTypeState = (currentState: CurrentState, browseType: 'title' | 'genre'): SessionState =>
     createSessionState(browseType, browseType === 'title' ? 'All' : '', null, currentState.searchValues, currentState.sortCriteria, currentState.sortOrder, currentState.pageSize, currentState.currentPage);
+
+export const createPaginationState = (currentState: CurrentState, page: number): SessionState =>
+    createSessionState(currentState.browseType, currentState.selectedLetter, currentState.selectedGenreId, currentState.searchValues, currentState.sortCriteria, currentState.sortOrder, currentState.pageSize, page);
