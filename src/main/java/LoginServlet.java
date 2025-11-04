@@ -5,9 +5,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.json.JSONObject;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.PrintWriter;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import javax.net.ssl.HttpsURLConnection;
+import java.io.*;
+import java.net.URL;
 import java.sql.*;
 
 @WebServlet(name = "LoginServlet", urlPatterns = {"/login"}) // Allows Tomcat to Interpret URL
@@ -20,45 +22,85 @@ public class LoginServlet extends HttpServlet {
             )
             """;
 
+    public static final String SECRET_KEY ="6Le3eAIsAAAAAKigdJPFrRk4teMKT1k9bBntTiZR";
+    public static final String SITE_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
+
+    protected static boolean recaptchaVerification(String gRecaptchaResponse) throws IOException {
+        URL verifyURL = new URL(SITE_VERIFY_URL);
+        HttpsURLConnection verificationConnection = (HttpsURLConnection) verifyURL.openConnection();
+        verificationConnection.setRequestMethod("POST");
+        verificationConnection.setRequestProperty("User-Agent", "Mozilla/5.0");
+        verificationConnection.setRequestProperty("Accept-Language", "en-US,en;q=0.5");
+
+        String postParams = "secret=" + SECRET_KEY + "&response=" + gRecaptchaResponse;
+        // Send Request
+        verificationConnection.setDoOutput(true);
+
+        // Send data to the ReCaptcha Server
+        try (OutputStream outStream = verificationConnection.getOutputStream()) {
+            outStream.write(postParams.getBytes());
+            outStream.flush();
+        }
+
+        // Read data sent from the server.
+        try (InputStream inputStream = verificationConnection.getInputStream();
+             InputStreamReader inputStreamReader = new InputStreamReader(inputStream)) {
+            JsonObject jsonObject = new Gson().fromJson(inputStreamReader, JsonObject.class);
+            return jsonObject.get("success").getAsBoolean();
+        }
+    }
+
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
         String jsonString = buildJSONString(request).toString();
         JSONObject jsonObject = new JSONObject(jsonString);
         String email = jsonObject.getString("email");
         String password = jsonObject.getString("password");
+        String gRecaptchaResponse = jsonObject.getString("g-recaptcha-response");
         setMimeType(response);
+
+        boolean recaptchaToken = recaptchaVerification(gRecaptchaResponse);
 
         Connection databaseConnection = establishDatabaseConnection();
         boolean existenceFlag = false;
 
-        try (PreparedStatement queryStatement = databaseConnection.prepareStatement(LOGIN_VERIFICATION_QUERY)){
-            queryStatement.setString(1, email);
-            queryStatement.setString(2, password);
-            ResultSet queryResult = queryStatement.executeQuery();
-            if (queryResult.next()){
-                existenceFlag = queryResult.getBoolean(1);
+        if (!recaptchaToken) {
+            JSONObject failedRecaptchaJSON = new JSONObject();
+            failedRecaptchaJSON.put("status", "recaptcha-failure");
+            PrintWriter reactOutput = response.getWriter();
+            reactOutput.write(failedRecaptchaJSON.toString());
+            reactOutput.flush();
+            reactOutput.close();
+        }
+        else {
+            try (PreparedStatement queryStatement = databaseConnection.prepareStatement(LOGIN_VERIFICATION_QUERY)) {
+                queryStatement.setString(1, email);
+                queryStatement.setString(2, password);
+                ResultSet queryResult = queryStatement.executeQuery();
+                if (queryResult.next()) {
+                    existenceFlag = queryResult.getBoolean(1);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
-        }
-        catch (Exception e){
-            throw new RuntimeException(e);
-        }
 
-        if (existenceFlag){
-            HttpSession session = request.getSession(true);
-            session.setAttribute("email", email);
-            session.setMaxInactiveInterval(30 * 60);
-        }
+            if (existenceFlag) {
+                HttpSession session = request.getSession(true);
+                session.setAttribute("email", email);
+                session.setMaxInactiveInterval(30 * 60);
+            }
 
-        JSONObject jsonSuccessStatus = buildJSONSuccess(existenceFlag);
-        PrintWriter reactOutput = response.getWriter();
-        reactOutput.write(jsonSuccessStatus.toString());
-        reactOutput.flush();
-        reactOutput.close();
+            JSONObject jsonSuccessStatus = buildJSONSuccess(existenceFlag);
+            PrintWriter reactOutput = response.getWriter();
+            reactOutput.write(jsonSuccessStatus.toString());
+            reactOutput.flush();
+            reactOutput.close();
 
-        try {
-            databaseConnection.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+            try {
+                databaseConnection.close();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
