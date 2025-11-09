@@ -22,6 +22,10 @@ import java.util.zip.CRC32;
 
 public class DataTransformer {
     private static final Pattern YEAR_PATTERN = Pattern.compile("(\\d{4})");
+    private static final DataQualityFilter<MovieRecord> MOVIE_FILTER = DataQualityFilters.movieFilter();
+    private static final DataQualityFilter<StarRecord> STAR_FILTER = DataQualityFilters.starFilter();
+    private static final DataQualityFilter<StarMovieRelation> STAR_RELATION_FILTER = DataQualityFilters.starMovieRelationFilter();
+    private static final DataQualityFilter<GenreMovieRelationRecord> GENRE_RELATION_FILTER = DataQualityFilters.genreMovieRelationFilter();
     
     private enum SourceType {
         MOVIES,
@@ -79,47 +83,65 @@ public class DataTransformer {
                 continue;
             }
             
-            for (MovieRecord movie : data.getMovies()) {
+            data.getMovies().forEach(movie -> {
                 if (movie == null || movie.getId() == null) {
-                    continue;
+                    return;
                 }
                 movieMap.putIfAbsent(movie.getId(), movie);
-            }
+            });
             
-            for (StarRecord star : data.getStars()) {
+            data.getStars().forEach(star -> {
                 if (star == null || star.getId() == null) {
-                    continue;
+                    return;
                 }
                 starMap.merge(star.getId(), star, this::mergeStarRecords);
-            }
+            });
             
-            for (StarMovieRelation relation : data.getStarMovieRelations()) {
+            data.getStarMovieRelations().forEach(relation -> {
                 if (relation == null || relation.getMovieId() == null || relation.getStarId() == null) {
-                    continue;
+                    return;
                 }
                 starRelations.add(relation);
-            }
+            });
             
-            for (String genre : data.getGenres()) {
+            data.getGenres().forEach(genre -> {
                 if (genre != null && !genre.isBlank()) {
                     genres.add(genre);
                 }
-            }
+            });
             
-            for (GenreMovieRelationRecord relation : data.getGenreMovieRelations()) {
+            data.getGenreMovieRelations().forEach(relation -> {
                 if (relation == null || relation.getMovieId() == null || relation.getGenreName() == null) {
-                    continue;
+                    return;
                 }
                 genreRelations.add(relation);
-            }
+            });
         }
         
         TransformedData aggregated = new TransformedData();
-        aggregated.addMovies(new ArrayList<>(movieMap.values()));
+        Map<String, Long> starCounts = starRelations.stream()
+            .collect(java.util.stream.Collectors.groupingBy(StarMovieRelation::getMovieId, java.util.stream.Collectors.counting()));
+
+        java.util.Set<String> moviesWithStars = new java.util.LinkedHashSet<>();
+        for (Map.Entry<String, MovieRecord> entry : movieMap.entrySet()) {
+            long count = starCounts.getOrDefault(entry.getKey(), 0L);
+            if (count > 0) {
+                aggregated.addMovie(entry.getValue());
+                moviesWithStars.add(entry.getKey());
+            } else {
+                System.err.println("[QUALITY][movie] " + entry.getKey()
+                    + " dropped: no associated stars after transformation.");
+            }
+        }
+
         aggregated.addStars(new ArrayList<>(starMap.values()));
-        aggregated.addStarMovieRelations(new ArrayList<>(starRelations));
+        aggregated.addStarMovieRelations(starRelations.stream()
+            .filter(relation -> moviesWithStars.contains(relation.getMovieId()))
+            .collect(java.util.stream.Collectors.toList()));
         aggregated.addGenres(genres);
-        aggregated.addGenreMovieRelations(new ArrayList<>(genreRelations));
+        aggregated.addGenreMovieRelations(genreRelations.stream()
+            .filter(relation -> moviesWithStars.contains(relation.getMovieId()))
+            .collect(java.util.stream.Collectors.toList()));
         return aggregated;
     }
     
@@ -142,6 +164,7 @@ public class DataTransformer {
     
     private TransformedData transformMovies(RawData rawData) {
         TransformedData transformed = new TransformedData();
+        String sourcePath = rawData.getSourceFilePath();
         for (Object recordObj : safeRecords(rawData)) {
             Map<String, Object> recordMap = asMap(recordObj);
             if (recordMap == null) {
@@ -153,19 +176,25 @@ public class DataTransformer {
             Object filmNode = filmsWrapper != null ? filmsWrapper.get("film") : recordMap.get("film");
             for (Map<String, Object> filmMap : mapList(filmNode)) {
                 String movieId = normalizeId(extractString(filmMap.get("fid")));
-                if (movieId == null) {
-                    continue;
-                }
                 String title = extractString(filmMap.get("t"));
                 Integer year = parseYear(extractString(filmMap.get("year")));
                 String director = determineDirector(filmMap, defaultDirector);
-                transformed.addMovie(new MovieRecord(movieId, title, year, director));
-                
+
+                MovieRecord movie = new MovieRecord(movieId, title, year, director);
+                if (!MOVIE_FILTER.accept(movie, sourcePath, "film element")) {
+                    continue;
+                }
+                transformed.addMovie(movie);
+
                 Map<String, Object> catsWrapper = asMap(filmMap.get("cats"));
                 Object catNode = catsWrapper != null ? catsWrapper.get("cat") : filmMap.get("cat");
                 for (String genreName : collectStringValues(catNode)) {
+                    GenreMovieRelationRecord relation = new GenreMovieRelationRecord(movie.getId(), genreName);
+                    if (!GENRE_RELATION_FILTER.accept(relation, sourcePath, "film genre")) {
+                        continue;
+                    }
                     transformed.addGenre(genreName);
-                    transformed.addGenreMovieRelation(movieId, genreName);
+                    transformed.addGenreMovieRelation(relation);
                 }
             }
         }
@@ -174,28 +203,27 @@ public class DataTransformer {
     
     private TransformedData transformActors(RawData rawData) {
         TransformedData transformed = new TransformedData();
+        String sourcePath = rawData.getSourceFilePath();
         for (Object recordObj : safeRecords(rawData)) {
             Map<String, Object> recordMap = asMap(recordObj);
             if (recordMap == null) {
                 continue;
             }
-            String stageName = extractString(recordMap.get("stagename"));
-            stageName = normalizeName(stageName);
-            if (stageName == null) {
-                continue;
-            }
+            String stageName = normalizeName(extractString(recordMap.get("stagename")));
             String starId = generateStarId(stageName);
-            if (starId == null) {
+            Integer birthYear = parseYear(extractString(recordMap.get("dob")));
+            StarRecord star = new StarRecord(starId, stageName, birthYear);
+            if (!STAR_FILTER.accept(star, sourcePath, "actor entry")) {
                 continue;
             }
-            Integer birthYear = parseYear(extractString(recordMap.get("dob")));
-            transformed.addStar(new StarRecord(starId, stageName, birthYear));
+            transformed.addStar(star);
         }
         return transformed;
     }
     
     private TransformedData transformCasts(RawData rawData) {
         TransformedData transformed = new TransformedData();
+        String sourcePath = rawData.getSourceFilePath();
         for (Object recordObj : safeRecords(rawData)) {
             Map<String, Object> recordMap = asMap(recordObj);
             if (recordMap == null) {
@@ -207,15 +235,18 @@ public class DataTransformer {
                 for (Map<String, Object> castMap : mapList(castEntries)) {
                     String movieId = normalizeId(extractString(castMap.get("f")));
                     String actorName = normalizeName(extractString(castMap.get("a")));
-                    if (movieId == null || actorName == null) {
-                        continue;
-                    }
                     String starId = generateStarId(actorName);
-                    if (starId == null) {
+
+                    StarRecord star = new StarRecord(starId, actorName, null);
+                    if (!STAR_FILTER.accept(star, sourcePath, "cast actor reference")) {
                         continue;
                     }
-                    transformed.addStar(new StarRecord(starId, actorName, null));
-                    transformed.addStarMovieRelation(new StarMovieRelation(starId, movieId));
+                    transformed.addStar(star);
+
+                    StarMovieRelation relation = new StarMovieRelation(starId, movieId);
+                    if (STAR_RELATION_FILTER.accept(relation, sourcePath, "cast relation")) {
+                        transformed.addStarMovieRelation(relation);
+                    }
                 }
             }
         }
@@ -386,4 +417,5 @@ public class DataTransformer {
         Integer birthYear = existing.getBirthYear() != null ? existing.getBirthYear() : incoming.getBirthYear();
         return new StarRecord(existing.getId(), name, birthYear);
     }
+    
 }

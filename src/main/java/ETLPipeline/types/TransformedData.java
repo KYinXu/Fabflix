@@ -100,6 +100,12 @@ public class TransformedData {
         genreMovieRelations.add(new GenreMovieRelationRecord(movieId.trim(), genreName.trim()));
     }
     
+    public void addGenreMovieRelation(GenreMovieRelationRecord relation) {
+        if (relation != null) {
+            genreMovieRelations.add(relation);
+        }
+    }
+    
     public void addGenreMovieRelations(List<GenreMovieRelationRecord> collection) {
         if (collection != null) {
             collection.stream()

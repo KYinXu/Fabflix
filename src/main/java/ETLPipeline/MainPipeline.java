@@ -96,6 +96,7 @@ public class MainPipeline {
         try {
             // Phase 1: Submit all parsing tasks to thread pool
             System.out.println("Submitting " + xmlFilePaths.size() + " parsing tasks...");
+            long parseStageStart = System.nanoTime();
             for (String xmlFilePath : xmlFilePaths) {
                 Future<ParseResult> future = executorService.submit(
                     () -> parseXmlFile(xmlFilePath)
@@ -117,32 +118,45 @@ public class MainPipeline {
                     e.printStackTrace();
                 }
             }
+            System.out.println("Parsing phase completed in " 
+                + formatDurationMillis(System.nanoTime() - parseStageStart) + " ms");
             
             // Phase 3: Transform all parsed data concurrently
             System.out.println("Transforming parsed data...");
             List<Future<TransformedData>> transformFutures = new ArrayList<>();
+            List<String> transformSources = new ArrayList<>();
+            long transformStageStart = System.nanoTime();
             for (ParseResult parseResult : parseResults) {
                 final ParseResult result = parseResult;  // Capture for lambda
                 Future<TransformedData> transformFuture = executorService.submit(
                     () -> transformer.transform(result)
                 );
                 transformFutures.add(transformFuture);
+                transformSources.add(parseResult.getFilePath());
             }
             
             // Phase 4: Collect transformed data
             List<TransformedData> transformedDataList = new ArrayList<>();
-            for (Future<TransformedData> future : transformFutures) {
+            for (int i = 0; i < transformFutures.size(); i++) {
+                Future<TransformedData> future = transformFutures.get(i);
                 try {
-                    transformedDataList.add(future.get());
+                    TransformedData data = future.get();
+                    transformedDataList.add(data);
+                    logTransformationProgress(transformSources.get(i), data);
                 } catch (ExecutionException e) {
                     System.err.println("Error in transformation: " + e.getCause().getMessage());
                     e.printStackTrace();
                 }
             }
+            System.out.println("Transformation phase completed in " 
+                + formatDurationMillis(System.nanoTime() - transformStageStart) + " ms");
             
             // Phase 5: Write to database (can be done concurrently for different tables)
             System.out.println("Writing data to database...");
+            long writeStageStart = System.nanoTime();
             writeDataConcurrent(transformedDataList);
+            System.out.println("Write phase completed in " 
+                + formatDurationMillis(System.nanoTime() - writeStageStart) + " ms");
             
             // Phase 6: Calculate statistics
             long endTime = System.currentTimeMillis();
@@ -206,12 +220,18 @@ public class MainPipeline {
     private void writeDataConcurrent(List<TransformedData> transformedDataList) {
         // Aggregate data from all parsing tasks
         TransformedData aggregated = aggregateTransformedData(transformedDataList);
+        logAggregationSummary(aggregated);
         
         writer.writeMovies(aggregated.getMovies());
+        System.out.println("Write progress: movies attempted=" + aggregated.getMovies().size());
         writer.writeStars(aggregated.getStars());
+        System.out.println("Write progress: stars attempted=" + aggregated.getStars().size());
         writer.writeGenres(aggregated.getGenres());
+        System.out.println("Write progress: genres attempted=" + aggregated.getGenres().size());
         writer.writeStarMovieRelations(aggregated.getStarMovieRelations());
+        System.out.println("Write progress: star-movie relations attempted=" + aggregated.getStarMovieRelations().size());
         writer.writeGenreMovieRelations(aggregated.getGenreMovieRelations());
+        System.out.println("Write progress: genre-movie relations attempted=" + aggregated.getGenreMovieRelations().size());
     }
     
     /**
@@ -222,6 +242,32 @@ public class MainPipeline {
         // This could involve merging lists, deduplicating, etc.
         // Implementation depends on data structure
         return transformer.aggregate(dataList);
+    }
+    
+    private void logTransformationProgress(String sourceFile, TransformedData data) {
+        if (data == null) {
+            return;
+        }
+        System.out.println("Transformed " + sourceFile + ": movies=" + data.getMovies().size()
+            + ", stars=" + data.getStars().size()
+            + ", genres=" + data.getGenres().size()
+            + ", star-movie relations=" + data.getStarMovieRelations().size()
+            + ", genre-movie relations=" + data.getGenreMovieRelations().size());
+    }
+    
+    private void logAggregationSummary(TransformedData aggregated) {
+        if (aggregated == null) {
+            return;
+        }
+        System.out.println("Aggregation summary -> movies=" + aggregated.getMovies().size()
+            + ", stars=" + aggregated.getStars().size()
+            + ", genres=" + aggregated.getGenres().size()
+            + ", star-movie relations=" + aggregated.getStarMovieRelations().size()
+            + ", genre-movie relations=" + aggregated.getGenreMovieRelations().size());
+    }
+    
+    private long formatDurationMillis(long nanos) {
+        return java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(nanos);
     }
     
     /**

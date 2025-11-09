@@ -6,6 +6,7 @@ import ETLPipeline.types.GenreMovieRelationRecord;
 import ETLPipeline.types.MovieRecord;
 import ETLPipeline.types.StarMovieRelation;
 import ETLPipeline.types.StarRecord;
+import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -52,7 +53,7 @@ public class DatabaseWriter {
     public void writeStars(List<StarRecord> stars) {
         String sql = "INSERT INTO stars (id, name, birth_year) VALUES (?, ?, ?) "
                    + "ON DUPLICATE KEY UPDATE name=VALUES(name), birth_year=VALUES(birth_year)";
-        executeRecords(stars, sql, (statement, star) -> {
+        executeWithBatchFallback(stars, sql, (statement, star) -> {
             statement.setString(1, star.getId());
             statement.setString(2, safeString(star.getName()));
             if (star.getBirthYear() != null) {
@@ -87,7 +88,7 @@ public class DatabaseWriter {
         
         String sql = "INSERT INTO movies (id, title, year, director) VALUES (?, ?, ?, ?) "
                    + "ON DUPLICATE KEY UPDATE title=VALUES(title), year=VALUES(year), director=VALUES(director)";
-        executeRecords(eligible, sql, (statement, movie) -> {
+        executeWithBatchFallback(eligible, sql, (statement, movie) -> {
             statement.setString(1, movie.getId());
             statement.setString(2, safeString(movie.getTitle()));
             statement.setInt(3, movie.getYear());
@@ -102,7 +103,7 @@ public class DatabaseWriter {
     public void writeStarMovieRelations(List<StarMovieRelation> starMovieRelations) {
         String sql = "INSERT INTO stars_in_movies (star_id, movie_id) VALUES (?, ?) "
                    + "ON DUPLICATE KEY UPDATE star_id=VALUES(star_id)";
-        executeRecords(starMovieRelations, sql, (statement, relation) -> {
+        executeWithBatchFallback(starMovieRelations, sql, (statement, relation) -> {
             statement.setString(1, relation.getStarId());
             statement.setString(2, relation.getMovieId());
         });
@@ -142,9 +143,11 @@ public class DatabaseWriter {
                     statement.setString(2, relation.getMovieId());
                     statement.executeUpdate();
                 } catch (SQLIntegrityConstraintViolationException e) {
-                    System.err.println("Skipping genre-movie relation due to constraint violation: " + e.getMessage());
+                    System.err.println("Skipping genre-movie relation " + describeRecord(relation)
+                        + " due to constraint violation: " + e.getMessage());
                 } catch (SQLException e) {
-                    System.err.println("Skipping genre-movie relation because of SQL error: " + e.getMessage());
+                    System.err.println("Skipping genre-movie relation " + describeRecord(relation)
+                        + " because of SQL error: " + e.getMessage());
                 } finally {
                     statement.clearParameters();
                 }
@@ -191,16 +194,72 @@ public class DatabaseWriter {
         }
     }
     
+    private int getBatchSize() {
+        return config != null && config.batchSize > 0 ? config.batchSize : 1000;
+    }
+    
     private String safeString(String value) {
         return value != null ? value : "";
     }
     
-    private <T> void executeRecords(List<T> records,
-                                    String sql,
-                                    SqlBinder<T> binder) {
+    private <T> void executeWithBatchFallback(List<T> records,
+                                              String sql,
+                                              SqlBinder<T> binder) {
         if (records == null || records.isEmpty()) {
             return;
         }
+        try {
+            executeBatchRecords(records, sql, binder);
+        } catch (BatchUpdateException e) {
+            System.err.println("Batch insert failed (" + describeSql(sql) + "): " + e.getMessage()
+                + ". Falling back to individual execution.");
+            executeRecordsIndividually(records, sql, binder);
+        } catch (SQLException e) {
+            System.err.println("Batch insert failed (" + describeSql(sql) + "): " + e.getMessage()
+                + ". Falling back to individual execution.");
+            executeRecordsIndividually(records, sql, binder);
+        }
+    }
+    
+    private <T> void executeBatchRecords(List<T> records,
+                                         String sql,
+                                         SqlBinder<T> binder) throws SQLException {
+        try (Connection connection = getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            boolean originalAutoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+            int counter = 0;
+            try {
+                for (T record : records) {
+                    if (record == null) {
+                        continue;
+                    }
+                    binder.bind(statement, record);
+                    statement.addBatch();
+                    counter++;
+                    if (counter % getBatchSize() == 0) {
+                        statement.executeBatch();
+                        connection.commit();
+                        statement.clearBatch();
+                    }
+                }
+                if (counter % getBatchSize() != 0) {
+                    statement.executeBatch();
+                    connection.commit();
+                    statement.clearBatch();
+                }
+            } catch (SQLException e) {
+                connection.rollback();
+                throw e;
+            } finally {
+                connection.setAutoCommit(originalAutoCommit);
+            }
+        }
+    }
+    
+    private <T> void executeRecordsIndividually(List<T> records,
+                                                String sql,
+                                                SqlBinder<T> binder) {
         try (Connection connection = getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             for (T record : records) {
@@ -211,9 +270,11 @@ public class DatabaseWriter {
                     binder.bind(statement, record);
                     statement.executeUpdate();
                 } catch (SQLIntegrityConstraintViolationException e) {
-                    System.err.println("Skipping record due to constraint violation: " + e.getMessage());
+                    System.err.println("Skipping record " + describeRecord(record)
+                        + " due to constraint violation: " + e.getMessage());
                 } catch (SQLException e) {
-                    System.err.println("Skipping record due to SQL error: " + e.getMessage());
+                    System.err.println("Skipping record " + describeRecord(record)
+                        + " due to SQL error: " + e.getMessage());
                 } finally {
                     statement.clearParameters();
                 }
@@ -287,7 +348,9 @@ public class DatabaseWriter {
                     insert.executeUpdate();
                     try (ResultSet keys = insert.getGeneratedKeys()) {
                         if (keys.next()) {
-                            genreCache.put(normalized, keys.getInt(1));
+                            int id = keys.getInt(1);
+                            genreCache.put(normalized, id);
+                            System.out.println("Inserted new genre '" + normalized + "' (id=" + id + ").");
                         }
                     }
                 } catch (SQLIntegrityConstraintViolationException e) {
@@ -327,6 +390,7 @@ public class DatabaseWriter {
                 if (keys.next()) {
                     int id = keys.getInt(1);
                     genreCache.put(genreName, id);
+                    System.out.println("Inserted new genre '" + genreName + "' (id=" + id + ").");
                     return id;
                 }
             }
@@ -363,5 +427,36 @@ public class DatabaseWriter {
         }
         String trimmed = genre.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+    
+    private String describeSql(String sql) {
+        if (sql == null) {
+            return "unknown SQL";
+        }
+        String compact = sql.replaceAll("\\s+", " ").trim();
+        int len = Math.min(compact.length(), 80);
+        return compact.substring(0, len) + (compact.length() > len ? "..." : "");
+    }
+    
+    private String describeRecord(Object record) {
+        if (record == null) {
+            return "(unknown)";
+        }
+        if (record instanceof MovieRecord movie) {
+            return "Movie[id=" + movie.getId() + ", title=" + safeString(movie.getTitle()) + "]";
+        }
+        if (record instanceof StarRecord star) {
+            return "Star[id=" + star.getId() + ", name=" + safeString(star.getName()) + "]";
+        }
+        if (record instanceof StarMovieRelation relation) {
+            return "StarMovieRelation[starId=" + relation.getStarId() + ", movieId=" + relation.getMovieId() + "]";
+        }
+        if (record instanceof GenreMovieRelationRecord relation) {
+            return "GenreMovieRelation[movieId=" + relation.getMovieId() + ", genre=" + relation.getGenreName() + "]";
+        }
+        if (record instanceof String) {
+            return "Value[" + record + "]";
+        }
+        return record.toString();
     }
 }
