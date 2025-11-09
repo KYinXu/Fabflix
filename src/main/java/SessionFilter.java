@@ -24,6 +24,14 @@ public class SessionFilter implements Filter {
         allowedURIs.add("/fabflix_war_exploded/logout");
         allowedURIs.add(".css");
         allowedURIs.add(".js");
+        allowedURIs.add("/_dashboard");
+        allowedURIs.add("/fabflix_war_exploded/_dashboard");
+        allowedURIs.add("/dashboard-login");
+        allowedURIs.add("/_dashboard");
+        allowedURIs.add("/add-star");
+        allowedURIs.add("/add-movie");
+        allowedURIs.add("/metadata");
+        allowedURIs.add("/fabflix_war_exploded/metadata");
     }
 
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -44,7 +52,8 @@ public class SessionFilter implements Filter {
         }
 
         HttpSession session = servletRequest.getSession(false);
-        if (session == null || session.getAttribute("email") == null) {
+        if (session == null || (session.getAttribute("email") == null
+                && session.getAttribute("employee") == null)) {
             this.servletContext.log("Unauthorized Access Denied - URI: " + servletRequest.getRequestURI() + 
                 ", Session: " + (session != null ? "exists" : "null") + 
                 ", Email: " + (session != null ? session.getAttribute("email") : "no session"));
