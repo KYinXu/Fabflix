@@ -192,13 +192,23 @@ public class DataTransformer {
 
                 Map<String, Object> catsWrapper = asMap(filmMap.get("cats"));
                 Object catNode = catsWrapper != null ? catsWrapper.get("cat") : filmMap.get("cat");
-                for (String genreName : collectStringValues(catNode)) {
-                    GenreMovieRelationRecord relation = new GenreMovieRelationRecord(movie.getId(), genreName);
-                    if (!GENRE_RELATION_FILTER.accept(relation, sourcePath, "film genre", "cat", genreName)) {
+                for (String rawGenre : collectStringValues(catNode)) {
+                    GenreMovieRelationRecord rawRelation = new GenreMovieRelationRecord(movie.getId(), rawGenre);
+                    if (!GENRE_RELATION_FILTER.accept(rawRelation, sourcePath, "film genre", "cat", rawGenre)) {
                         continue;
                     }
-                    transformed.addGenre(genreName);
-                    transformed.addGenreMovieRelation(relation);
+                    String normalizedGenre = DataQualityFilters.canonicalizeGenre(rawGenre);
+                    if (normalizedGenre == null) {
+                        normalizedGenre = DataQualityFilters.normalizeEmergingGenre(rawGenre);
+                    }
+                    if (normalizedGenre == null) {
+                        continue;
+                    }
+                    if (rawGenre != null && !normalizedGenre.equalsIgnoreCase(rawGenre.trim())) {
+                        DataQualityFilters.logGenreNormalization(sourcePath, movie.getId(), rawGenre, normalizedGenre);
+                    }
+                    transformed.addGenre(normalizedGenre);
+                    transformed.addGenreMovieRelation(new GenreMovieRelationRecord(movie.getId(), normalizedGenre));
                 }
             }
         }

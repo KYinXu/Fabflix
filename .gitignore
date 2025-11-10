@@ -176,5 +176,8 @@ buildNumber.properties
 # Backend environment variables and examples
 Parameters.java
 
+# Log files from ETL pipeline
+data-quality.log
+
 # End of https://www.gitignore.io/api/java,maven,eclipse,java-web,intellij
 

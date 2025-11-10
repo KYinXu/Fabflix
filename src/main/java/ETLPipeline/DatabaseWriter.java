@@ -42,11 +42,6 @@ public class DatabaseWriter {
     }
     
     /**
-     * Write genres to database
-     * @param genres Collection of genre names
-     */
-    
-    /**
      * Write stars to database
      * @param stars List of star data
      */
@@ -157,14 +152,6 @@ public class DatabaseWriter {
         }
     }
     
-    /**
-     * Write ratings to database
-     * @param ratings List of rating data
-     */
-    public void writeRatings(List<?> ratings) {
-        // Not yet implemented - ratings are outside current ETL scope
-    }
-    
     private Connection getConnection() {
         ensureConfig();
         try {
@@ -215,7 +202,7 @@ public class DatabaseWriter {
                 + ". Falling back to individual execution.");
             executeRecordsIndividually(records, sql, binder);
         } catch (SQLException e) {
-            System.err.println("Batch insert failed (" + describeSql(sql) + "): " + e.getMessage()
+            System.err.println("Batch insert failed due to SQL exception (" + describeSql(sql) + "): " + e.getMessage()
                 + ". Falling back to individual execution.");
             executeRecordsIndividually(records, sql, binder);
         }
@@ -375,7 +362,9 @@ public class DatabaseWriter {
         try (PreparedStatement statement = connection.prepareStatement("SELECT id, name FROM genres");
              ResultSet resultSet = statement.executeQuery()) {
             while (resultSet.next()) {
-                genreCache.putIfAbsent(resultSet.getString("name"), resultSet.getInt("id"));
+                String name = resultSet.getString("name");
+                genreCache.putIfAbsent(name, resultSet.getInt("id"));
+                DataQualityFilters.registerKnownGenre(name);
             }
         }
     }
@@ -389,6 +378,7 @@ public class DatabaseWriter {
                 if (keys.next()) {
                     int id = keys.getInt(1);
                     genreCache.put(genreName, id);
+                    DataQualityFilters.registerKnownGenre(genreName);
                     return id;
                 }
             }
@@ -412,6 +402,7 @@ public class DatabaseWriter {
                 if (resultSet.next()) {
                     int id = resultSet.getInt(1);
                     genreCache.put(genreName, id);
+                    DataQualityFilters.registerKnownGenre(genreName);
                     return id;
                 }
             }
@@ -420,11 +411,11 @@ public class DatabaseWriter {
     }
     
     private String normalizeGenreName(String genre) {
-        if (genre == null) {
-            return null;
+        String canonical = DataQualityFilters.canonicalizeGenre(genre);
+        if (canonical != null) {
+            return canonical;
         }
-        String trimmed = genre.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+        return DataQualityFilters.normalizeEmergingGenre(genre);
     }
     
     private String describeSql(String sql) {

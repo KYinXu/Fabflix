@@ -55,7 +55,6 @@ public final class DataQualityFilter<T> {
 
     private final String entityName;
     private final List<Rule<T>> rules;
-
     public DataQualityFilter(String entityName, List<Rule<T>> rules) {
         this.entityName = entityName != null ? entityName : "entity";
         this.rules = List.copyOf(rules);
@@ -106,8 +105,9 @@ public final class DataQualityFilter<T> {
         String fieldLabel = " field=" + effectiveField;
         String valueLabel = effectiveValue != null ? (" value=" + describeValue(effectiveValue)) : "";
 
-        System.err.println("[" + entityName + "]" + contextLabel + " " + sourceLabel
-            + elementLabel + fieldLabel + valueLabel + " -> " + message);
+        String prefix = "[" + entityName + "]" + contextLabel;
+        String body = sourceLabel + elementLabel + fieldLabel + valueLabel + " -> " + message;
+        DataQualityLogger.log(prefix, body, true);
     }
 
     private String describeValue(Object nodeValue) {
