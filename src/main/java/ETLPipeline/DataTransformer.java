@@ -122,6 +122,7 @@ public class DataTransformer {
         Map<String, Long> starCounts = starRelations.stream()
             .collect(java.util.stream.Collectors.groupingBy(StarMovieRelation::getMovieId, java.util.stream.Collectors.counting()));
 
+        int droppedMovies = 0;
         java.util.Set<String> moviesWithStars = new java.util.LinkedHashSet<>();
         for (Map.Entry<String, MovieRecord> entry : movieMap.entrySet()) {
             long count = starCounts.getOrDefault(entry.getKey(), 0L);
@@ -129,9 +130,12 @@ public class DataTransformer {
                 aggregated.addMovie(entry.getValue());
                 moviesWithStars.add(entry.getKey());
             } else {
-                System.err.println("[QUALITY][movie] " + entry.getKey()
-                    + " dropped: no associated stars after transformation.");
+                droppedMovies++;
             }
+        }
+        if (droppedMovies > 0) {
+            System.err.println("[QUALITY][movie] Dropped " + droppedMovies
+                + " movies due to having zero associated star references.");
         }
 
         aggregated.addStars(new ArrayList<>(starMap.values()));
@@ -181,7 +185,7 @@ public class DataTransformer {
                 String director = determineDirector(filmMap, defaultDirector);
 
                 MovieRecord movie = new MovieRecord(movieId, title, year, director);
-                if (!MOVIE_FILTER.accept(movie, sourcePath, "film element")) {
+                if (!MOVIE_FILTER.accept(movie, sourcePath, "film element", "film", filmMap)) {
                     continue;
                 }
                 transformed.addMovie(movie);
@@ -190,7 +194,7 @@ public class DataTransformer {
                 Object catNode = catsWrapper != null ? catsWrapper.get("cat") : filmMap.get("cat");
                 for (String genreName : collectStringValues(catNode)) {
                     GenreMovieRelationRecord relation = new GenreMovieRelationRecord(movie.getId(), genreName);
-                    if (!GENRE_RELATION_FILTER.accept(relation, sourcePath, "film genre")) {
+                    if (!GENRE_RELATION_FILTER.accept(relation, sourcePath, "film genre", "cat", genreName)) {
                         continue;
                     }
                     transformed.addGenre(genreName);
@@ -213,7 +217,7 @@ public class DataTransformer {
             String starId = generateStarId(stageName);
             Integer birthYear = parseYear(extractString(recordMap.get("dob")));
             StarRecord star = new StarRecord(starId, stageName, birthYear);
-            if (!STAR_FILTER.accept(star, sourcePath, "actor entry")) {
+            if (!STAR_FILTER.accept(star, sourcePath, "actor entry", "actor", recordMap)) {
                 continue;
             }
             transformed.addStar(star);
@@ -238,13 +242,13 @@ public class DataTransformer {
                     String starId = generateStarId(actorName);
 
                     StarRecord star = new StarRecord(starId, actorName, null);
-                    if (!STAR_FILTER.accept(star, sourcePath, "cast actor reference")) {
+                    if (!STAR_FILTER.accept(star, sourcePath, "cast actor reference", "cast", castMap)) {
                         continue;
                     }
                     transformed.addStar(star);
 
                     StarMovieRelation relation = new StarMovieRelation(starId, movieId);
-                    if (STAR_RELATION_FILTER.accept(relation, sourcePath, "cast relation")) {
+                    if (STAR_RELATION_FILTER.accept(relation, sourcePath, "cast relation", "cast", castMap)) {
                         transformed.addStarMovieRelation(relation);
                     }
                 }

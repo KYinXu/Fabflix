@@ -12,10 +12,21 @@ public final class DataQualityFilter<T> {
     public static final class Rule<T> {
         private final String description;
         private final Predicate<T> predicate;
+        private final String fieldName;
+        private final java.util.function.Function<T, Object> extractor;
 
         public Rule(String description, Predicate<T> predicate) {
+            this(description, predicate, null, null);
+        }
+
+        public Rule(String description,
+                    Predicate<T> predicate,
+                    String fieldName,
+                    java.util.function.Function<T, Object> extractor) {
             this.description = Objects.requireNonNull(description, "description");
             this.predicate = Objects.requireNonNull(predicate, "predicate");
+            this.fieldName = fieldName;
+            this.extractor = extractor;
         }
 
         public String description() {
@@ -24,6 +35,21 @@ public final class DataQualityFilter<T> {
 
         public boolean test(T value) {
             return predicate.test(value);
+        }
+
+        public String fieldName() {
+            return fieldName;
+        }
+
+        public Object extractValue(T value) {
+            if (extractor != null && value != null) {
+                try {
+                    return extractor.apply(value);
+                } catch (Exception ignored) {
+                    return null;
+                }
+            }
+            return value;
         }
     }
 
@@ -36,27 +62,95 @@ public final class DataQualityFilter<T> {
     }
 
     public boolean accept(T value, String source, String context) {
+        return accept(value, source, context, null, null);
+    }
+
+    public boolean accept(T value, String source, String context, String elementName, Object nodeValue) {
         if (value == null) {
-            log(source, context, "Value is null");
+            log(source, context, elementName, null, null, "Value is null", nodeValue);
             return false;
         }
         for (Rule<T> rule : rules) {
             if (!rule.test(value)) {
-                log(source, context, rule.description());
+                String field = rule.fieldName() != null ? rule.fieldName() : elementName;
+                Object extracted = rule.extractValue(value);
+                log(source, context, elementName, field, extracted, rule.description(), nodeValue);
                 return false;
             }
         }
         return true;
     }
 
-    private void log(String source, String context, String message) {
-        String sourceLabel = (source != null && !source.isBlank()) ? source : "unknown-source";
-        String contextLabel = (context != null && !context.isBlank()) ? (" [" + context + "]") : "";
-        System.err.println("[QUALITY][" + entityName + "] " + sourceLabel + contextLabel + " -> " + message);
+    private void log(String source,
+                     String context,
+                     String elementName,
+                     String fieldName,
+                     Object fieldValue,
+                     String message,
+                     Object rawNodeValue) {
+        String sourceLabel = compactSource(source);
+        String contextLabel = (context != null && !context.isBlank()) ? ("[" + context + "]") : "";
+        String elementLabel = elementName != null && !elementName.isBlank() ? (" element=" + elementName) : "";
+
+        String effectiveField = null;
+        if (fieldName != null && !fieldName.isBlank()) {
+            effectiveField = fieldName;
+        } else if (elementName != null && !elementName.isBlank()) {
+            effectiveField = elementName;
+        }
+        if (effectiveField == null || effectiveField.isBlank()) {
+            effectiveField = "value";
+        }
+
+        Object effectiveValue = fieldValue;
+        String fieldLabel = " field=" + effectiveField;
+        String valueLabel = effectiveValue != null ? (" value=" + describeValue(effectiveValue)) : "";
+
+        System.err.println("[" + entityName + "]" + contextLabel + " " + sourceLabel
+            + elementLabel + fieldLabel + valueLabel + " -> " + message);
+    }
+
+    private String describeValue(Object nodeValue) {
+        String text;
+        if (nodeValue instanceof String) {
+            text = (String) nodeValue;
+        } else if (nodeValue instanceof Number || nodeValue instanceof Boolean) {
+            text = String.valueOf(nodeValue);
+        } else if (nodeValue instanceof java.util.Map<?, ?> map) {
+            text = map.toString();
+        } else if (nodeValue instanceof java.util.Collection<?> collection) {
+            text = collection.toString();
+        } else {
+            text = String.valueOf(nodeValue);
+        }
+        int max = 200;
+        if (text.length() > max) {
+            return text.substring(0, max - 3) + "...";
+        }
+        return text;
+    }
+
+    private String compactSource(String source) {
+        if (source == null || source.isBlank()) {
+            return "unknown-source";
+        }
+        String normalized = source.replace('\\', '/');
+        int index = normalized.lastIndexOf('/');
+        if (index >= 0 && index + 1 < normalized.length()) {
+            return normalized.substring(index + 1);
+        }
+        return normalized;
     }
 
     public static <T> Rule<T> rule(String description, Predicate<T> predicate) {
         return new Rule<>(description, predicate);
+    }
+
+    public static <T> Rule<T> rule(String description,
+                                    Predicate<T> predicate,
+                                    String fieldName,
+                                    java.util.function.Function<T, Object> extractor) {
+        return new Rule<>(description, predicate, fieldName, extractor);
     }
 }
 

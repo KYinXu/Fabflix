@@ -350,7 +350,6 @@ public class DatabaseWriter {
                         if (keys.next()) {
                             int id = keys.getInt(1);
                             genreCache.put(normalized, id);
-                            System.out.println("Inserted new genre '" + normalized + "' (id=" + id + ").");
                         }
                     }
                 } catch (SQLIntegrityConstraintViolationException e) {
@@ -390,7 +389,6 @@ public class DatabaseWriter {
                 if (keys.next()) {
                     int id = keys.getInt(1);
                     genreCache.put(genreName, id);
-                    System.out.println("Inserted new genre '" + genreName + "' (id=" + id + ").");
                     return id;
                 }
             }
