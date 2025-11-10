@@ -36,7 +36,7 @@ public class DataTransformer {
     
     /**
      * Transform raw parsed data into structured format
-     * @param rawData Raw parsed data from XML
+     * @param parseResult Raw parsed data from XML
      * @return TransformedData ready for database insertion
      */
     public TransformedData transform(ParseResult parseResult) {
@@ -50,16 +50,12 @@ public class DataTransformer {
         }
         
         SourceType sourceType = detectSource(rawData.getSourceFilePath());
-        switch (sourceType) {
-            case MOVIES:
-                return transformMovies(rawData);
-            case STARS:
-                return transformActors(rawData);
-            case CASTS:
-                return transformCasts(rawData);
-            default:
-                return new TransformedData();
-        }
+        return switch (sourceType) {
+            case MOVIES -> transformMovies(rawData);
+            case STARS -> transformActors(rawData);
+            case CASTS -> transformCasts(rawData);
+            default -> new TransformedData();
+        };
     }
     
     /**
@@ -185,7 +181,7 @@ public class DataTransformer {
                 String director = determineDirector(filmMap, defaultDirector);
 
                 MovieRecord movie = new MovieRecord(movieId, title, year, director);
-                if (!MOVIE_FILTER.accept(movie, sourcePath, "film element", "film", filmMap)) {
+                if (!MOVIE_FILTER.accept(movie, sourcePath, "film element", "film")) {
                     continue;
                 }
                 transformed.addMovie(movie);
@@ -194,7 +190,7 @@ public class DataTransformer {
                 Object catNode = catsWrapper != null ? catsWrapper.get("cat") : filmMap.get("cat");
                 for (String rawGenre : collectStringValues(catNode)) {
                     GenreMovieRelationRecord rawRelation = new GenreMovieRelationRecord(movie.getId(), rawGenre);
-                    if (!GENRE_RELATION_FILTER.accept(rawRelation, sourcePath, "film genre", "cat", rawGenre)) {
+                    if (!GENRE_RELATION_FILTER.accept(rawRelation, sourcePath, "film genre", "cat")) {
                         continue;
                     }
                     String normalizedGenre = DataQualityFilters.canonicalizeGenre(rawGenre);
@@ -227,7 +223,7 @@ public class DataTransformer {
             String starId = generateStarId(stageName);
             Integer birthYear = parseYear(extractString(recordMap.get("dob")));
             StarRecord star = new StarRecord(starId, stageName, birthYear);
-            if (!STAR_FILTER.accept(star, sourcePath, "actor entry", "actor", recordMap)) {
+            if (!STAR_FILTER.accept(star, sourcePath, "actor entry", "actor")) {
                 continue;
             }
             transformed.addStar(star);
@@ -252,13 +248,13 @@ public class DataTransformer {
                     String starId = generateStarId(actorName);
 
                     StarRecord star = new StarRecord(starId, actorName, null);
-                    if (!STAR_FILTER.accept(star, sourcePath, "cast actor reference", "cast", castMap)) {
+                    if (!STAR_FILTER.accept(star, sourcePath, "cast actor reference", "cast")) {
                         continue;
                     }
                     transformed.addStar(star);
 
                     StarMovieRelation relation = new StarMovieRelation(starId, movieId);
-                    if (STAR_RELATION_FILTER.accept(relation, sourcePath, "cast relation", "cast", castMap)) {
+                    if (STAR_RELATION_FILTER.accept(relation, sourcePath, "cast relation", "cast")) {
                         transformed.addStarMovieRelation(relation);
                     }
                 }
@@ -335,15 +331,19 @@ public class DataTransformer {
     }
     
     private String extractString(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof String) {
-            String trimmed = ((String) value).trim();
-            return trimmed.isEmpty() ? null : trimmed;
-        }
-        if (value instanceof Number) {
-            return value.toString();
+        switch (value) {
+            case null -> {
+                return null;
+            }
+            case String s -> {
+                String trimmed = s.trim();
+                return trimmed.isEmpty() ? null : trimmed;
+            }
+            case Number number -> {
+                return value.toString();
+            }
+            default -> {
+            }
         }
         Map<String, Object> map = asMap(value);
         if (map != null) {

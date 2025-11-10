@@ -19,11 +19,10 @@ final class GenreEvidenceTracker {
         if (key == null) {
             return;
         }
-        String display = sanitized;
         FIRST_MOVIE_MAP.putIfAbsent(key, movieId);
-        AtomicInteger counter = EVIDENCE_MAP.computeIfAbsent(key, unused -> new AtomicInteger(0));
+        AtomicInteger counter = EVIDENCE_MAP.computeIfAbsent(key, _ -> new AtomicInteger(0));
         int newCount = counter.incrementAndGet();
-        String body = "genre=" + display
+        String body = "genre=" + sanitized
             + " normalizedKey=" + key
             + " evidenceCount=" + newCount
             + " firstMovieId=" + FIRST_MOVIE_MAP.get(key);

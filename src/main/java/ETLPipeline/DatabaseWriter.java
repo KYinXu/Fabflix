@@ -428,24 +428,16 @@ public class DatabaseWriter {
     }
     
     private String describeRecord(Object record) {
-        if (record == null) {
-            return "(unknown)";
-        }
-        if (record instanceof MovieRecord movie) {
-            return "Movie[id=" + movie.getId() + ", title=" + safeString(movie.getTitle()) + "]";
-        }
-        if (record instanceof StarRecord star) {
-            return "Star[id=" + star.getId() + ", name=" + safeString(star.getName()) + "]";
-        }
-        if (record instanceof StarMovieRelation relation) {
-            return "StarMovieRelation[starId=" + relation.getStarId() + ", movieId=" + relation.getMovieId() + "]";
-        }
-        if (record instanceof GenreMovieRelationRecord relation) {
-            return "GenreMovieRelation[movieId=" + relation.getMovieId() + ", genre=" + relation.getGenreName() + "]";
-        }
-        if (record instanceof String) {
-            return "Value[" + record + "]";
-        }
-        return record.toString();
+        return switch (record) {
+            case null -> "(unknown)";
+            case MovieRecord movie -> "Movie[id=" + movie.getId() + ", title=" + safeString(movie.getTitle()) + "]";
+            case StarRecord star -> "Star[id=" + star.getId() + ", name=" + safeString(star.getName()) + "]";
+            case StarMovieRelation relation ->
+                    "StarMovieRelation[starId=" + relation.getStarId() + ", movieId=" + relation.getMovieId() + "]";
+            case GenreMovieRelationRecord relation ->
+                    "GenreMovieRelation[movieId=" + relation.getMovieId() + ", genre=" + relation.getGenreName() + "]";
+            case String s -> "Value[" + record + "]";
+            default -> record.toString();
+        };
     }
 }

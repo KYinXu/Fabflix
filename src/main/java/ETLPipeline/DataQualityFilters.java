@@ -4,7 +4,7 @@ import ETLPipeline.types.GenreMovieRelationRecord;
 import ETLPipeline.types.MovieRecord;
 import ETLPipeline.types.StarMovieRelation;
 import ETLPipeline.types.StarRecord;
-import java.util.Collection;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -306,12 +306,11 @@ final class DataQualityFilters {
     }
 
     static void logGenreNormalization(String source, String movieId, String original, String normalized) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("source=").append(compactSource(source))
-            .append(" movieId=").append(movieId != null ? movieId : "unknown")
-            .append(" original=").append(original != null ? original : "null")
-            .append(" normalized=").append(normalized != null ? normalized : "null");
-        DataQualityLogger.log("[genre-fixed]", builder.toString(), false);
+        String builder = "source=" + compactSource(source) +
+                " movieId=" + (movieId != null ? movieId : "unknown") +
+                " original=" + (original != null ? original : "null") +
+                " normalized=" + (normalized != null ? normalized : "null");
+        DataQualityLogger.log("[genre-fixed]", builder, false);
     }
 
     private static String compactSource(String source) {
@@ -356,15 +355,6 @@ final class DataQualityFilters {
         }
         builder.append(value.substring(lastIndex));
         return toDisplayCase(builder.toString());
-    }
-
-    static void registerKnownGenres(Collection<String> genres) {
-        if (genres == null) {
-            return;
-        }
-        for (String genre : genres) {
-            registerKnownGenre(genre);
-        }
     }
 
     static void registerKnownGenre(String genre) {

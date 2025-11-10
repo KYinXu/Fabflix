@@ -60,11 +60,7 @@ public final class DataQualityFilter<T> {
         this.rules = List.copyOf(rules);
     }
 
-    public boolean accept(T value, String source, String context) {
-        return accept(value, source, context, null, null);
-    }
-
-    public boolean accept(T value, String source, String context, String elementName, Object nodeValue) {
+    public boolean accept(T value, String source, String context, String elementName) {
         if (value == null) {
             log(source, context, elementName, null, null, "Value is null");
             return false;
@@ -100,9 +96,8 @@ public final class DataQualityFilter<T> {
             effectiveField = "value";
         }
 
-        Object effectiveValue = fieldValue;
         String fieldLabel = " field=" + effectiveField;
-        String valueLabel = effectiveValue != null ? (" value=" + describeValue(effectiveValue)) : "";
+        String valueLabel = fieldValue != null ? (" value=" + describeValue(fieldValue)) : "";
 
         String prefix = "[" + entityName + "]" + contextLabel;
         String body = sourceLabel + elementLabel + fieldLabel + valueLabel + " -> " + message;
