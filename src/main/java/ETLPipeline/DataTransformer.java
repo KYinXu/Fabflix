@@ -339,7 +339,7 @@ public class DataTransformer {
                 String trimmed = s.trim();
                 return trimmed.isEmpty() ? null : trimmed;
             }
-            case Number number -> {
+            case Number n -> {
                 return value.toString();
             }
             default -> {
