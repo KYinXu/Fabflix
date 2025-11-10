@@ -11,10 +11,7 @@ import java.sql.*;
 
 @WebServlet(name = "AddMovieServlet", urlPatterns = {"/add-movie"})
 public class AddMovieServlet extends HttpServlet {
-    public static final String ADD_MOVIE_QUERY = """
-            INSERT INTO movies (id, title, year, director)
-            VALUES (?, ?, ?, ?);
-            """;
+    public static final String ADD_MOVIE_PROCEDURE = "{ CALL add_movie(?, ?, ?, ?, ?) }";
 
     public static final String GET_MAX_ID = """
             SELECT MAX(id) AS max_id FROM movies;
@@ -27,26 +24,22 @@ public class AddMovieServlet extends HttpServlet {
         JSONObject jsonObject = new JSONObject(jsonString);
         String title = jsonObject.getString("title");
         String year = jsonObject.getString("year");
-        String newId = getNewId();
         String director = jsonObject.getString("director");
         setMimeType(response);
 
         Connection databaseConnection = establishDatabaseConnection();
         boolean existenceFlag = false;
-        int rowsAffected = 0;
 
-        try (PreparedStatement queryStatement = databaseConnection.prepareStatement(ADD_MOVIE_QUERY)) {
-            queryStatement.setString(1, newId);
-            queryStatement.setString(2, title);
-            queryStatement.setInt(3, Integer.parseInt(year));
-            queryStatement.setString(4, director);
-            rowsAffected = queryStatement.executeUpdate();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        if (rowsAffected > 0){
+        try (CallableStatement stmt = databaseConnection.prepareCall(ADD_MOVIE_PROCEDURE)) {
+            stmt.setString(1, title);
+            stmt.setInt(2, Integer.parseInt(year));
+            stmt.setString(3, director);
+            stmt.setString(4, jsonObject.getString("star_name"));
+            stmt.setString(5, jsonObject.getString("genre_name"));
+            stmt.execute();
             existenceFlag = true;
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
         JSONObject jsonSuccessStatus = buildJSONSuccess(existenceFlag);
@@ -60,23 +53,6 @@ public class AddMovieServlet extends HttpServlet {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    protected String getNewId() {
-        String newId = "tt0000001";
-        try (Connection databaseConnection = establishDatabaseConnection();
-             PreparedStatement queryStatement = databaseConnection.prepareStatement(GET_MAX_ID);
-             ResultSet resultSet = queryStatement.executeQuery()) {
-
-            if (resultSet.next() && resultSet.getString("max_id") != null) {
-                String maxId = resultSet.getString("max_id");
-                int nextNum = Integer.parseInt(maxId.substring(2)) + 1;
-                newId = String.format("tt%07d", nextNum);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        return newId;
     }
 
     protected Connection establishDatabaseConnection(){
