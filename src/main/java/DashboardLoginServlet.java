@@ -85,11 +85,11 @@ public class DashboardLoginServlet extends HttpServlet {
                 throw new RuntimeException(e);
             }
 
-            if (existenceFlag) {
-                HttpSession session = request.getSession(true);
-                session.setAttribute("employee", email);
-                session.setMaxInactiveInterval(30 * 60);
-            }
+//            if (existenceFlag) {
+//                HttpSession session = request.getSession(true);
+//                session.setAttribute("employee", email);
+//                session.setMaxInactiveInterval(30 * 60);
+//            }
 
             JSONObject jsonSuccessStatus = buildJSONSuccess(existenceFlag);
             PrintWriter reactOutput = response.getWriter();
