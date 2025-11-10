@@ -66,14 +66,14 @@ public final class DataQualityFilter<T> {
 
     public boolean accept(T value, String source, String context, String elementName, Object nodeValue) {
         if (value == null) {
-            log(source, context, elementName, null, null, "Value is null", nodeValue);
+            log(source, context, elementName, null, null, "Value is null");
             return false;
         }
         for (Rule<T> rule : rules) {
             if (!rule.test(value)) {
                 String field = rule.fieldName() != null ? rule.fieldName() : elementName;
                 Object extracted = rule.extractValue(value);
-                log(source, context, elementName, field, extracted, rule.description(), nodeValue);
+                log(source, context, elementName, field, extracted, rule.description());
                 return false;
             }
         }
@@ -85,8 +85,7 @@ public final class DataQualityFilter<T> {
                      String elementName,
                      String fieldName,
                      Object fieldValue,
-                     String message,
-                     Object rawNodeValue) {
+                     String message) {
         String sourceLabel = compactSource(source);
         String contextLabel = (context != null && !context.isBlank()) ? ("[" + context + "]") : "";
         String elementLabel = elementName != null && !elementName.isBlank() ? (" element=" + elementName) : "";

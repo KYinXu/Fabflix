@@ -4,8 +4,8 @@ import ETLPipeline.types.GenreMovieRelationRecord;
 import ETLPipeline.types.MovieRecord;
 import ETLPipeline.types.StarMovieRelation;
 import ETLPipeline.types.StarRecord;
-import java.util.List;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -226,9 +226,31 @@ final class DataQualityFilters {
         return builder.toString().trim();
     }
 
-    private static String findSingleCharVariant(String candidate) {
-        String candidateKey = comparisonKey(candidate);
-        if (candidateKey == null) {
+    private static String resolveKnownGenre(String sanitized) {
+        GenreCandidate candidate = buildCandidate(sanitized);
+        if (candidate == null) {
+            return null;
+        }
+        for (GenreNormalizationStage stage : CANONICAL_PIPELINE) {
+            String resolved = stage.apply(candidate);
+            if (resolved != null) {
+                registerKnownGenre(resolved);
+                return resolved;
+            }
+        }
+        return null;
+    }
+
+    private static String matchKnownDirect(GenreCandidate candidate) {
+        if (candidate.key == null) {
+            return null;
+        }
+        return KNOWN_GENRES.get(candidate.key);
+    }
+
+    private static String matchNearKnown(GenreCandidate candidate) {
+        String key = candidate.key;
+        if (key == null) {
             return null;
         }
         for (Map.Entry<String, String> entry : KNOWN_GENRES.entrySet()) {
@@ -236,53 +258,72 @@ final class DataQualityFilters {
             if (knownKey == null) {
                 continue;
             }
-            if (isSingleInsertionOrDeletion(knownKey, candidateKey)
-                || isSingleReplacement(knownKey, candidateKey)) {
+            if (isSingleInsertionOrDeletion(knownKey, key)
+                || isSingleReplacement(knownKey, key)) {
                 return entry.getValue();
             }
         }
         return null;
     }
 
-    private static boolean isSingleInsertionOrDeletion(String base, String other) {
-        int diff = base.length() - other.length();
-        if (Math.abs(diff) != 1) {
-            return false;
-        }
-        String longer = diff > 0 ? base : other;
-        String shorter = diff > 0 ? other : base;
-        int i = 0;
-        int j = 0;
-        boolean foundDifference = false;
-        while (i < longer.length() && j < shorter.length()) {
-            if (longer.charAt(i) == shorter.charAt(j)) {
-                i++;
-                j++;
-                continue;
-            }
-            if (foundDifference) {
-                return false;
-            }
-            foundDifference = true;
-            i++;
-        }
-        return true;
+    private static String matchAlias(GenreCandidate candidate) {
+        return resolveAlias(candidate.sanitized);
     }
 
-    private static boolean isSingleReplacement(String base, String other) {
-        if (base.length() != other.length()) {
-            return false;
+    private static String matchCompoundAlias(GenreCandidate candidate) {
+        return resolveCompoundAlias(candidate.sanitized);
+    }
+
+    private static GenreCandidate buildCandidate(String sanitized) {
+        if (sanitized == null) {
+            return null;
         }
-        int differences = 0;
-        for (int i = 0; i < base.length(); i++) {
-            if (base.charAt(i) != other.charAt(i)) {
-                differences++;
-                if (differences > 1) {
-                    return false;
-                }
-            }
+        return new GenreCandidate(sanitized, collapseKey(sanitized));
+    }
+
+    private static String collapseKey(String sanitized) {
+        String collapsed = sanitized.replaceAll("[\\s\\-]", "");
+        collapsed = collapsed.replaceAll("[^A-Za-z0-9]", "");
+        if (collapsed.isEmpty()) {
+            return null;
         }
-        return differences == 1;
+        return collapsed.toLowerCase(Locale.ROOT);
+    }
+
+    static String comparisonKey(String value) {
+        String sanitized = sanitizeGenreValue(value);
+        if (sanitized == null) {
+            return null;
+        }
+        return collapseKey(sanitized);
+    }
+
+    private static void logGenreAnomaly(String message, String movieId, String genreValue) {
+        String body = "source=" + compactSource(null)
+            + " movieId=" + (movieId != null ? movieId : "unknown")
+            + " value=" + (genreValue != null ? genreValue : "null") + " -> " + message;
+        DataQualityLogger.log("[genre]", body, true);
+    }
+
+    static void logGenreNormalization(String source, String movieId, String original, String normalized) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("source=").append(compactSource(source))
+            .append(" movieId=").append(movieId != null ? movieId : "unknown")
+            .append(" original=").append(original != null ? original : "null")
+            .append(" normalized=").append(normalized != null ? normalized : "null");
+        DataQualityLogger.log("[genre-fixed]", builder.toString(), false);
+    }
+
+    private static String compactSource(String source) {
+        if (source == null || source.isBlank()) {
+            return "unknown-source";
+        }
+        String normalized = source.replace('\\', '/');
+        int index = normalized.lastIndexOf('/');
+        if (index >= 0 && index + 1 < normalized.length()) {
+            return normalized.substring(index + 1);
+        }
+        return normalized;
     }
 
     private static String resolveAlias(String value) {
@@ -335,7 +376,7 @@ final class DataQualityFilters {
         if (sanitized == null) {
             return;
         }
-        String key = comparisonKey(sanitized);
+        String key = collapseKey(sanitized);
         if (key == null) {
             return;
         }
@@ -360,81 +401,60 @@ final class DataQualityFilters {
         return cleaned.isEmpty() ? null : cleaned;
     }
 
-    static String comparisonKey(String value) {
-        String sanitized = sanitizeGenreValue(value);
-        if (sanitized == null) {
-            return null;
+    private static boolean isSingleInsertionOrDeletion(String base, String other) {
+        int diff = base.length() - other.length();
+        if (Math.abs(diff) != 1) {
+            return false;
         }
-        String collapsed = sanitized.replaceAll("[\\s\\-]", "");
-        collapsed = collapsed.replaceAll("[^A-Za-z0-9]", "");
-        if (collapsed.isEmpty()) {
-            return null;
+        String longer = diff > 0 ? base : other;
+        String shorter = diff > 0 ? other : base;
+        int i = 0;
+        int j = 0;
+        boolean foundDifference = false;
+        while (i < longer.length() && j < shorter.length()) {
+            if (longer.charAt(i) == shorter.charAt(j)) {
+                i++;
+                j++;
+                continue;
+            }
+            if (foundDifference) {
+                return false;
+            }
+            foundDifference = true;
+            i++;
         }
-        return collapsed.toLowerCase(Locale.ROOT);
+        return true;
     }
 
-    private static void logGenreAnomaly(String message, String movieId, String genreValue) {
-        String body = "source=" + compactSource(null)
-            + " movieId=" + (movieId != null ? movieId : "unknown")
-            + " value=" + (genreValue != null ? genreValue : "null") + " -> " + message;
-        DataQualityLogger.log("[genre]", body, true);
-    }
-
-    static void logGenreNormalization(String source, String movieId, String original, String normalized) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("source=").append(compactSource(source))
-            .append(" movieId=").append(movieId != null ? movieId : "unknown")
-            .append(" original=").append(original != null ? original : "null")
-            .append(" normalized=").append(normalized != null ? normalized : "null");
-        DataQualityLogger.log("[genre-fixed]", builder.toString(), false);
-    }
-
-    private static String compactSource(String source) {
-        if (source == null || source.isBlank()) {
-            return "unknown-source";
+    private static boolean isSingleReplacement(String base, String other) {
+        if (base.length() != other.length()) {
+            return false;
         }
-        String normalized = source.replace('\\', '/');
-        int index = normalized.lastIndexOf('/');
-        if (index >= 0 && index + 1 < normalized.length()) {
-            return normalized.substring(index + 1);
-        }
-        return normalized;
-    }
-
-    private static String resolveKnownGenre(String sanitized) {
-        for (GenreNormalizationStage stage : CANONICAL_PIPELINE) {
-            String resolved = stage.apply(sanitized);
-            if (resolved != null) {
-                registerKnownGenre(resolved);
-                return resolved;
+        int differences = 0;
+        for (int i = 0; i < base.length(); i++) {
+            if (base.charAt(i) != other.charAt(i)) {
+                differences++;
+                if (differences > 1) {
+                    return false;
+                }
             }
         }
-        return null;
+        return differences == 1;
     }
 
-    private static String matchKnownDirect(String sanitized) {
-        String key = comparisonKey(sanitized);
-        if (key == null) {
-            return null;
+    private static final class GenreCandidate {
+        private final String sanitized;
+        private final String key;
+
+        private GenreCandidate(String sanitized, String key) {
+            this.sanitized = sanitized;
+            this.key = key;
         }
-        return KNOWN_GENRES.get(key);
-    }
-
-    private static String matchNearKnown(String sanitized) {
-        return findSingleCharVariant(sanitized);
-    }
-
-    private static String matchAlias(String sanitized) {
-        return resolveAlias(sanitized);
-    }
-
-    private static String matchCompoundAlias(String sanitized) {
-        return resolveCompoundAlias(sanitized);
     }
 
     @FunctionalInterface
     private interface GenreNormalizationStage {
-        String apply(String sanitizedValue);
+        String apply(GenreCandidate candidate);
     }
 }
 
