@@ -11,16 +11,13 @@ import javax.net.ssl.HttpsURLConnection;
 import java.io.*;
 import java.net.URL;
 import java.sql.*;
+import org.jasypt.util.password.StrongPasswordEncryptor;
 
 @WebServlet(name = "LoginServlet", urlPatterns = {"/login"}) // Allows Tomcat to Interpret URL
 public class LoginServlet extends HttpServlet {
     public static final String LOGIN_VERIFICATION_QUERY = """
-            SELECT EXISTS(
-                    SELECT 1
-                    FROM customers
-                    WHERE email = ? AND password = ?
-            )
-            """;
+        SELECT password FROM customers WHERE email = ?
+        """;
 
     public static final String SECRET_KEY ="6Le3eAIsAAAAAKigdJPFrRk4teMKT1k9bBntTiZR";
     public static final String SITE_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
@@ -75,10 +72,13 @@ public class LoginServlet extends HttpServlet {
         else {
             try (PreparedStatement queryStatement = databaseConnection.prepareStatement(LOGIN_VERIFICATION_QUERY)) {
                 queryStatement.setString(1, email);
-                queryStatement.setString(2, password);
                 ResultSet queryResult = queryStatement.executeQuery();
+
                 if (queryResult.next()) {
-                    existenceFlag = queryResult.getBoolean(1);
+                    String encryptedPassword = queryResult.getString("password");
+                    StrongPasswordEncryptor passwordEncryptor = new StrongPasswordEncryptor();
+
+                    existenceFlag = passwordEncryptor.checkPassword(password, encryptedPassword);
                 }
             } catch (Exception e) {
                 throw new RuntimeException(e);
