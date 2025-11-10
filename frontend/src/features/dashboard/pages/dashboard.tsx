@@ -2,9 +2,16 @@ import React, { useState } from "react";
 import { useFetchAddStar } from "../hooks/useFetchAddStars";
 import { useFetchAddMovie } from "../hooks/useFetchAddMovies";
 import { useFetchMetadata } from "../hooks/useFetchMetadata";
+import { useEffect } from "react";
 
 const Dashboard: React.FC = () => {
     // Hooks
+    useEffect(() => {
+        const loggedIn = sessionStorage.getItem("employeeLoggedIn");
+        if (!loggedIn) {
+            window.location.href = "/dashboard-login";
+        }
+    }, []);
     const { data: starData, loading: starLoading, error: starError, fetchAddStar } = useFetchAddStar();
     const { data: movieData, loading: movieLoading, error: movieError, fetchAddMovie } = useFetchAddMovie();
     const { data: metadata, loading: metaLoading, error: metaError, fetchMetadata } = useFetchMetadata();
@@ -136,6 +143,16 @@ const Dashboard: React.FC = () => {
                                 } as React.CSSProperties}
                             />
                         </div>
+
+                        <button
+                            onClick={() => {
+                                sessionStorage.removeItem("employeeLoggedIn");
+                                window.location.href = "/dashboard-login";
+                            }}
+                            className="absolute top-8 right-8 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-all"
+                        >
+                            Logout
+                        </button>
 
                         <button
                             type="submit"

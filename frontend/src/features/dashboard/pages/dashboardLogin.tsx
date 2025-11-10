@@ -10,19 +10,32 @@ const DashboardLogin: React.FC = () => {
     const [recaptcha, setRecaptcha] = useState<string | null>(null);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        if (data && data.status === "success"){
-            navigate("/dashboard");
-        }
-    }, [data, navigate]);
-
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
+
         if (!recaptcha) {
-            alert("Please complete the reCAPTCHA first!");
+            alert("Please complete the reCAPTCHA.");
             return;
         }
-        await fetchLogin(email, password, recaptcha);
+
+        try {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/_dashboard`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password, "g-recaptcha-response": recaptcha }),
+            });
+
+            const result = await response.json();
+
+            if (result.status === "success") {
+                sessionStorage.setItem("employeeLoggedIn", "true");
+                window.location.href = "/dashboard";
+            } else {
+                alert("Invalid email or password");
+            }
+        } catch (error) {
+            alert("Something went wrong. Please try again.");
+        }
     };
 
     return (
