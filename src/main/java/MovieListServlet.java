@@ -16,11 +16,11 @@ public class MovieListServlet extends HttpServlet{
     public static final String GET_MOVIE_LIST = """
             SELECT DISTINCT m.id, m.title, m.year, m.director, r.ratings
             FROM movies m
-            INNER JOIN ratings r ON m.id = r.movie_id
-            INNER JOIN stars_in_movies sm ON m.id = sm.movie_id
-            INNER JOIN stars s ON sm.star_id = s.id
+            LEFT JOIN ratings r ON m.id = r.movie_id
+            LEFT JOIN stars_in_movies sm ON m.id = sm.movie_id
+            LEFT JOIN stars s ON sm.star_id = s.id
             WHERE m.title LIKE ?
-            AND (s.name LIKE ? OR ? = '%')
+            AND (s.name LIKE ? OR ? = '%' OR s.name IS NULL)
             AND m.director LIKE ?
             AND (m.year = ? OR ? = -1)
             """;
@@ -28,7 +28,7 @@ public class MovieListServlet extends HttpServlet{
     public static final String GET_MOVIE_LIST_BY_GENRE = """
             SELECT DISTINCT m.id, m.title, m.year, m.director, r.ratings
             FROM movies m
-            INNER JOIN ratings r ON m.id = r.movie_id
+            LEFT JOIN ratings r ON m.id = r.movie_id
             INNER JOIN genres_in_movies gm ON m.id = gm.movie_id
             WHERE gm.genre_id = ?
             """;
