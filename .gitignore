@@ -175,6 +175,7 @@ buildNumber.properties
 
 # Backend environment variables and examples
 Parameters.java
+MongoDBParameters.java
 
 # Log files from ETL pipeline
 data-quality.log
