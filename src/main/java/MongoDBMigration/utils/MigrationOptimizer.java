@@ -19,22 +19,19 @@ public class MigrationOptimizer {
      * 
      * @param collection MongoDB collection
      * @param documents List of documents to insert
-     * @return Number of documents inserted
      */
-    public static int bulkInsertUnordered(MongoCollection<Document> collection, List<Document> documents) {
+    public static void bulkInsertUnordered(MongoCollection<Document> collection, List<Document> documents) {
         if (documents.isEmpty()) {
-            return 0;
+            return;
         }
         try {
             InsertManyOptions options = new InsertManyOptions()
                 .ordered(false);  // Unordered for better performance
             
             collection.insertMany(documents, options);
-            return documents.size();
         } catch (Exception e) {
             // Even with errors, some documents may have been inserted
             System.err.println("Bulk insert warning: " + e.getMessage());
-            return 0;
         }
     }
     

@@ -42,18 +42,6 @@ public abstract class BaseMigrator {
     }
     
     /**
-     * Set custom batch size for migration
-     * @param batchSize Batch size (recommended: 100-5000 depending on document size)
-     */
-    public void setBatchSize(int batchSize) {
-        if (batchSize > 0 && batchSize <= 10000) {
-            this.batchSize = batchSize;
-        } else {
-            System.out.println("⚠️  Invalid batch size: " + batchSize + ". Using default: 1000");
-        }
-    }
-    
-    /**
      * Enable or disable bulk write optimization
      * @param enable true to enable bulk writes
      */
