@@ -25,53 +25,37 @@ public class EmployeeMigrator extends BaseMigrator {
     
     @Override
     public void migrate() throws Exception {
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  MIGRATING EMPLOYEES");
-        System.out.println("=".repeat(60) + "\n");
-        
-        Connection conn = null;
+        MigrationContext context = null;
         
         try {
-            // Connect to MySQL
-            conn = mysqlConfig.getConnection();
-            System.out.println("✓ Connected to MySQL");
+            // Setup: establish connections, prepare collection
+            context = setupMigration();
+            logMigrationStart(context);
             
-            // Get MongoDB collection
-            MongoDatabase database = mongoConfig.getDatabase();
-            MongoCollection<Document> collection = database.getCollection(getCollectionName());
+            // Execute migration: fetch and transform employees
+            List<Document> employees = fetchAndTransformEmployees(context);
             
-            // Clear existing data
-            collection.drop();
-            System.out.println("✓ Cleared existing MongoDB collection");
-            
-            // Get total count
-            long totalEmployees = getSourceCount();
-            long effectiveLimit = getEffectiveLimit(totalEmployees);
-            
-            if (migrationLimit != null && migrationLimit < totalEmployees) {
-                System.out.println("✓ Total employees available: " + totalEmployees);
-                System.out.println("✓ Migration limit set to: " + effectiveLimit);
-                System.out.println("✓ Migrating first " + effectiveLimit + " employees\n");
-            } else {
-                System.out.println("✓ Total employees to migrate: " + totalEmployees + "\n");
-            }
-            
-            // Migrate employees (typically very small dataset)
-            List<Document> employees = migrateEmployeeBatch(conn, 0, (int) effectiveLimit);
-            
+            // Insert: perform batch insert
             if (!employees.isEmpty()) {
-                collection.insertMany(employees);
-                logProgress(employees.size(), effectiveLimit);
+                performBatchInsert(context.mongoCollection, employees);
+                context.processedCount = employees.size();
+                logProgress(context.processedCount, context.effectiveLimit);
             }
             
-            System.out.println("\n✓ Migration complete!");
-            System.out.println("  Migrated: " + employees.size() + " employees");
+            // Complete: log results
+            logMigrationComplete(context);
             
         } finally {
-            if (conn != null) {
-                mysqlConfig.closeConnection(conn);
-            }
+            closeMigrationContext(context);
         }
+    }
+    
+    /**
+     * Fetch employees from MySQL and transform to MongoDB documents
+     * Separated for reusability and testing
+     */
+    private List<Document> fetchAndTransformEmployees(MigrationContext context) throws Exception {
+        return migrateEmployeeBatch(context.sqlConnection, 0, (int) context.effectiveLimit);
     }
     
     @Override
@@ -156,39 +140,5 @@ public class EmployeeMigrator extends BaseMigrator {
         }
         
         return employees;
-    }
-    
-    /**
-     * Main method to run employee migration
-     */
-    public static void main(String[] args) {
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  FABFLIX EMPLOYEE MIGRATION");
-        System.out.println("=".repeat(60));
-        
-        try {
-            // Initialize configs
-            MySQLConnectionConfig mysqlConfig = new MySQLConnectionConfig();
-            MongoDBConnectionConfig mongoConfig = new MongoDBConnectionConfig();
-            
-            // Create migrator
-            EmployeeMigrator migrator = new EmployeeMigrator(mysqlConfig, mongoConfig);
-            
-            // Run migration
-            migrator.migrate();
-            
-            // Validate
-            migrator.validate();
-            
-            System.out.println("\n" + "=".repeat(60));
-            System.out.println("✅ Employee migration completed successfully!");
-            System.out.println("=".repeat(60) + "\n");
-            
-        } catch (Exception e) {
-            System.err.println("\n❌ Employee migration failed!");
-            System.err.println("Error: " + e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
-        }
     }
 }

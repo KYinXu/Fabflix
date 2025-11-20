@@ -2,6 +2,7 @@ package MongoDBMigration.migrators;
 
 import MongoDBMigration.config.MySQLConnectionConfig;
 import MongoDBMigration.config.MongoDBConnectionConfig;
+import MongoDBMigration.utils.MigrationOptimizer;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
@@ -9,6 +10,7 @@ import org.bson.Document;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.List;
 
 /**
  * Abstract base class for all migrators
@@ -20,12 +22,14 @@ public abstract class BaseMigrator {
     protected MongoDBConnectionConfig mongoConfig;
     protected int batchSize;
     protected Long migrationLimit; // Optional limit for testing/partial migrations
+    protected boolean enableBulkWrite; // Enable MongoDB bulk write optimization
     
     public BaseMigrator(MySQLConnectionConfig mysqlConfig, MongoDBConnectionConfig mongoConfig) {
         this.mysqlConfig = mysqlConfig;
         this.mongoConfig = mongoConfig;
-        this.batchSize = 1000; // Default batch size
+        this.batchSize = 1000; // Default batch size - optimal for most cases
         this.migrationLimit = null; // No limit by default
+        this.enableBulkWrite = true; // Enable bulk writes by default
     }
     
     /**
@@ -35,6 +39,26 @@ public abstract class BaseMigrator {
      */
     public void setMigrationLimit(Long limit) {
         this.migrationLimit = limit;
+    }
+    
+    /**
+     * Set custom batch size for migration
+     * @param batchSize Batch size (recommended: 100-5000 depending on document size)
+     */
+    public void setBatchSize(int batchSize) {
+        if (batchSize > 0 && batchSize <= 10000) {
+            this.batchSize = batchSize;
+        } else {
+            System.out.println("⚠️  Invalid batch size: " + batchSize + ". Using default: 1000");
+        }
+    }
+    
+    /**
+     * Enable or disable bulk write optimization
+     * @param enable true to enable bulk writes
+     */
+    public void setEnableBulkWrite(boolean enable) {
+        this.enableBulkWrite = enable;
     }
     
     /**
@@ -76,22 +100,6 @@ public abstract class BaseMigrator {
         MongoDatabase database = mongoConfig.getDatabase();
         MongoCollection<Document> collection = database.getCollection(getCollectionName());
         return collection.countDocuments();
-    }
-    
-    /**
-     * Clear the MongoDB collection (for re-migration)
-     */
-    protected void clearCollection() {
-        try {
-            MongoDatabase database = mongoConfig.getDatabase();
-            MongoCollection<Document> collection = database.getCollection(getCollectionName());
-            long count = collection.countDocuments();
-            collection.drop();
-            System.out.println("Cleared collection '" + getCollectionName() + "' (" + count + " documents)");
-        } catch (Exception e) {
-            System.err.println("Error clearing collection: " + e.getMessage());
-            e.printStackTrace();
-        }
     }
     
     /**
@@ -205,6 +213,124 @@ public abstract class BaseMigrator {
     protected String getSourceTableName() {
         // Default implementation - override in subclasses
         return getCollectionName();
+    }
+    
+    // ========== REUSABLE MIGRATION COMPONENTS ==========
+    
+    /**
+     * Inner class to hold migration context and statistics
+     */
+    protected static class MigrationContext {
+        public Connection sqlConnection;
+        public MongoCollection<Document> mongoCollection;
+        public long totalCount;
+        public long effectiveLimit;
+        public long startTime;
+        public int processedCount;
+        
+        public MigrationContext() {
+            this.startTime = System.currentTimeMillis();
+            this.processedCount = 0;
+        }
+    }
+    
+    /**
+     * Setup migration - establishes connections, prepares collection
+     * @return MigrationContext with all necessary connections and info
+     */
+    protected MigrationContext setupMigration() throws Exception {
+        MigrationContext context = new MigrationContext();
+        
+        // Connect to MySQL
+        context.sqlConnection = mysqlConfig.getConnection();
+        System.out.println("✓ Connected to MySQL");
+        
+        // Optimize JDBC settings
+        MigrationOptimizer.optimizeJdbcFetch(context.sqlConnection, batchSize);
+        
+        // Get MongoDB collection
+        MongoDatabase database = mongoConfig.getDatabase();
+        context.mongoCollection = database.getCollection(getCollectionName());
+        
+        // Clear existing data
+        context.mongoCollection.drop();
+        System.out.println("✓ Cleared existing MongoDB collection");
+        
+        // Get counts
+        context.totalCount = getSourceCount();
+        context.effectiveLimit = getEffectiveLimit(context.totalCount);
+        
+        return context;
+    }
+    
+    /**
+     * Log migration start information
+     */
+    protected void logMigrationStart(MigrationContext context) {
+        System.out.println("\n" + "=".repeat(60));
+        System.out.println("  MIGRATING: " + getCollectionName().toUpperCase());
+        System.out.println("=".repeat(60) + "\n");
+        
+        if (migrationLimit != null && migrationLimit < context.totalCount) {
+            System.out.println("✓ Total records available: " + context.totalCount);
+            System.out.println("✓ Migration limit set to: " + context.effectiveLimit);
+            System.out.println("✓ Migrating first " + context.effectiveLimit + " records");
+        } else {
+            System.out.println("✓ Total records to migrate: " + context.totalCount);
+        }
+        
+        System.out.println("✓ Batch size: " + batchSize);
+        System.out.println("✓ Bulk write: " + (enableBulkWrite ? "enabled" : "disabled") + "\n");
+    }
+    
+    /**
+     * Perform batch insert with appropriate write strategy
+     */
+    protected void performBatchInsert(MongoCollection<Document> collection, List<Document> batch) {
+        if (batch == null || batch.isEmpty()) {
+            return;
+        }
+        
+        if (enableBulkWrite) {
+            MigrationOptimizer.bulkInsertUnordered(collection, batch);
+        } else {
+            collection.insertMany(batch);
+        }
+    }
+    
+    /**
+     * Log migration completion and performance statistics
+     */
+    protected void logMigrationComplete(MigrationContext context) {
+        System.out.println("\n✓ Migration complete!");
+        System.out.println("  Migrated: " + context.processedCount + " " + getCollectionName());
+        
+        // Log performance statistics
+        MigrationOptimizer.logPerformanceStats(
+            getCollectionName(), 
+            context.processedCount, 
+            context.startTime
+        );
+    }
+    
+    /**
+     * Calculate batch limit for current iteration
+     */
+    protected int calculateBatchLimit(int offset, long effectiveLimit) {
+        return (int) Math.min(batchSize, effectiveLimit - offset);
+    }
+    
+    /**
+     * Close migration context resources
+     */
+    protected void closeMigrationContext(MigrationContext context) {
+        if (context != null && context.sqlConnection != null) {
+            try {
+                context.sqlConnection.close();
+            } catch (Exception e) {
+                System.err.println("Warning: Error closing SQL connection: " + e.getMessage());
+            }
+        }
     }
 }
 

@@ -10,24 +10,18 @@ import MongoDBMigration.migrators.*;
  */
 public class MigrationRunner {
     
+    // Track total migration time
+    private long migrationStartTime;
+    private long migrationEndTime;
+    
     public static void main(String[] args) {
         MigrationRunner runner = new MigrationRunner();
-        
-        // Run migration (automatically includes verification and report)
         //runner.runPartialMigration(new String[]{"movies"}, 1000L);
-        runner.testMigration();
+        runner.fullMigration();
     }  
     
-    public void testMigration() {
-        String[] allCollections = {
-            "genres",      // First: reference data
-            "movies",      // Second: main entities with genre references
-            "stars",       // Third: stars (can be independent)
-            "customers",   // Fourth: customers
-            "employees",   // Fifth: employees
-            "sales"        // Last: transactional data with references
-        };
-        runPartialMigration(allCollections, 1000L);
+    public void fullMigration() {
+        runFullMigration();
     }
 
     /**
@@ -112,16 +106,16 @@ public class MigrationRunner {
             MongoDBConnectionConfig mongoConfig = new MongoDBConnectionConfig();
             
             // Create test migrator
-            TestMigrator tester = new TestMigrator(mysqlConfig, mongoConfig);
+            MovieMigrator movieMigrator = new MovieMigrator(mysqlConfig, mongoConfig);
             
             // Run connection tests
-            tester.runConnectionTest();
+            movieMigrator.runConnectionTest();
             
             // Push example documents
-            tester.pushExampleDocuments();
-            
+            movieMigrator.migrate();
+
             System.out.println("\n✅ All connection tests passed!\n");
-            System.out.println("📊 Example documents are in collection: " + tester.getCollectionName());
+            System.out.println("📊 Example documents are in collection: " + movieMigrator.getCollectionName());
             System.out.println("   You can view them in MongoDB Compass or mongosh\n");
             System.out.println("You can now run your migration scripts safely.\n");
             
@@ -167,6 +161,9 @@ public class MigrationRunner {
             return;
         }
         
+        // Start timer
+        migrationStartTime = System.currentTimeMillis();
+        
         System.out.println("\n" + "=".repeat(60));
         System.out.println("  PARTIAL MIGRATION");
         System.out.println("=".repeat(60) + "\n");
@@ -174,6 +171,7 @@ public class MigrationRunner {
         if (limit != null) {
             System.out.println("Record limit per collection: " + limit);
         }
+        System.out.println("Migration started at: " + new java.util.Date(migrationStartTime));
         System.out.println();
         
         try {
@@ -243,6 +241,9 @@ public class MigrationRunner {
                     e.printStackTrace();
                 }
             }
+            
+            // End timer before verification/reporting
+            migrationEndTime = System.currentTimeMillis();
             
             // Run verification after migration (accounting for limit)
             verifyMigration(collections, limit);
@@ -385,6 +386,9 @@ public class MigrationRunner {
                 System.out.println("  Partial migrations:  " + partialCount);
             }
             System.out.println("  Failed:              " + failedCount);
+            if (migrationStartTime > 0 && migrationEndTime > 0) {
+                System.out.println("  Migration time:      " + formatDuration(migrationEndTime - migrationStartTime));
+            }
             System.out.println("=".repeat(60) + "\n");
             
             if (failedCount == 0 && passedCount > 0) {
@@ -522,6 +526,16 @@ public class MigrationRunner {
             System.out.println("  Collections with data: " + migratedCollections);
             System.out.println("  Total MySQL records:   " + String.format("%,d", totalSourceRecords));
             System.out.println("  Total MongoDB docs:    " + String.format("%,d", totalDestRecords));
+            if (migrationStartTime > 0 && migrationEndTime > 0) {
+                long durationMs = migrationEndTime - migrationStartTime;
+                System.out.println("  Total migration time:  " + formatDuration(durationMs));
+                
+                // Calculate throughput
+                if (durationMs > 0 && totalDestRecords > 0) {
+                    double recordsPerSecond = (totalDestRecords * 1000.0) / durationMs;
+                    System.out.println("  Average throughput:    " + String.format("%,.0f", recordsPerSecond) + " docs/sec");
+                }
+            }
             
             if (limit != null) {
                 // Calculate expected records for partial migration
@@ -596,6 +610,35 @@ public class MigrationRunner {
             System.err.println("\n❌ Report generation failed!");
             System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Format duration in milliseconds to human-readable format
+     * @param durationMs Duration in milliseconds
+     * @return Formatted string (e.g., "1h 23m 45s" or "23m 45s" or "45.2s")
+     */
+    private String formatDuration(long durationMs) {
+        if (durationMs < 0) {
+            return "N/A";
+        }
+        
+        long seconds = durationMs / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        
+        seconds = seconds % 60;
+        minutes = minutes % 60;
+        
+        if (hours > 0) {
+            return String.format("%dh %02dm %02ds", hours, minutes, seconds);
+        } else if (minutes > 0) {
+            return String.format("%dm %02ds", minutes, seconds);
+        } else if (seconds > 0) {
+            double secs = durationMs / 1000.0;
+            return String.format("%.1fs", secs);
+        } else {
+            return durationMs + "ms";
         }
     }
 }

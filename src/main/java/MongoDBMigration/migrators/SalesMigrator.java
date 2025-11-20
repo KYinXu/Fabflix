@@ -25,64 +25,56 @@ public class SalesMigrator extends BaseMigrator {
     
     @Override
     public void migrate() throws Exception {
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  MIGRATING SALES");
-        System.out.println("=".repeat(60) + "\n");
-        
-        Connection conn = null;
+        MigrationContext context = null;
         
         try {
-            // Connect to MySQL
-            conn = mysqlConfig.getConnection();
-            System.out.println("✓ Connected to MySQL");
+            // Setup: establish connections, prepare collection
+            context = setupMigration();
+            logMigrationStart(context);
             
-            // Get MongoDB collection
-            MongoDatabase database = mongoConfig.getDatabase();
-            MongoCollection<Document> collection = database.getCollection(getCollectionName());
+            // Execute migration: process in batches
+            processBatchedMigration(context);
             
-            // Clear existing data
-            collection.drop();
-            System.out.println("✓ Cleared existing MongoDB collection");
-            
-            // Get total count
-            long totalSales = getSourceCount();
-            long effectiveLimit = getEffectiveLimit(totalSales);
-            
-            if (migrationLimit != null && migrationLimit < totalSales) {
-                System.out.println("✓ Total sales available: " + totalSales);
-                System.out.println("✓ Migration limit set to: " + effectiveLimit);
-                System.out.println("✓ Migrating first " + effectiveLimit + " sales\n");
-            } else {
-                System.out.println("✓ Total sales to migrate: " + totalSales + "\n");
-            }
-            
-            // Migrate in batches
-            int offset = 0;
-            int processed = 0;
-            
-            while (offset < effectiveLimit) {
-                // Calculate how many records to fetch in this batch
-                int batchLimit = (int) Math.min(batchSize, effectiveLimit - offset);
-                
-                List<Document> batch = migrateSaleBatch(conn, offset, batchLimit);
-                
-                if (!batch.isEmpty()) {
-                    collection.insertMany(batch);
-                    processed += batch.size();
-                    logProgress(processed, effectiveLimit);
-                }
-                
-                offset += batchSize;
-            }
-            
-            System.out.println("\n✓ Migration complete!");
-            System.out.println("  Migrated: " + processed + " sales");
+            // Complete: log results
+            logMigrationComplete(context);
             
         } finally {
-            if (conn != null) {
-                mysqlConfig.closeConnection(conn);
-            }
+            closeMigrationContext(context);
         }
+    }
+    
+    /**
+     * Process sales in batches
+     * Separated for reusability and clarity
+     */
+    private void processBatchedMigration(MigrationContext context) throws Exception {
+        int offset = 0;
+        
+        while (offset < context.effectiveLimit) {
+            // Calculate batch limit
+            int batchLimit = calculateBatchLimit(offset, context.effectiveLimit);
+            
+            // Fetch and transform batch
+            List<Document> batch = fetchAndTransformSaleBatch(context, offset, batchLimit);
+            
+            // Insert batch
+            if (!batch.isEmpty()) {
+                performBatchInsert(context.mongoCollection, batch);
+                context.processedCount += batch.size();
+                logProgress(context.processedCount, context.effectiveLimit);
+            }
+            
+            offset += batchSize;
+        }
+    }
+    
+    /**
+     * Fetch and transform a single batch of sales
+     * Separated for reusability and testing
+     */
+    private List<Document> fetchAndTransformSaleBatch(MigrationContext context, int offset, int limit) 
+            throws Exception {
+        return migrateSaleBatch(context.sqlConnection, offset, limit);
     }
     
     @Override
@@ -125,7 +117,7 @@ public class SalesMigrator extends BaseMigrator {
     }
     
     @Override
-    public long getDestinationCount() throws Exception {
+    public long getDestinationCount() {
         MongoDatabase database = mongoConfig.getDatabase();
         MongoCollection<Document> collection = database.getCollection(getCollectionName());
         return collection.countDocuments();
@@ -195,39 +187,5 @@ public class SalesMigrator extends BaseMigrator {
         }
         
         return sales;
-    }
-    
-    /**
-     * Main method to run sales migration
-     */
-    public static void main(String[] args) {
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  FABFLIX SALES MIGRATION");
-        System.out.println("=".repeat(60));
-        
-        try {
-            // Initialize configs
-            MySQLConnectionConfig mysqlConfig = new MySQLConnectionConfig();
-            MongoDBConnectionConfig mongoConfig = new MongoDBConnectionConfig();
-            
-            // Create migrator
-            SalesMigrator migrator = new SalesMigrator(mysqlConfig, mongoConfig);
-            
-            // Run migration
-            migrator.migrate();
-            
-            // Validate
-            migrator.validate();
-            
-            System.out.println("\n" + "=".repeat(60));
-            System.out.println("✅ Sales migration completed successfully!");
-            System.out.println("=".repeat(60) + "\n");
-            
-        } catch (Exception e) {
-            System.err.println("\n❌ Sales migration failed!");
-            System.err.println("Error: " + e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
-        }
     }
 }

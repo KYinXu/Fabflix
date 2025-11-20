@@ -11,7 +11,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Migrates movies from MySQL to MongoDB
@@ -25,64 +27,56 @@ public class MovieMigrator extends BaseMigrator {
     
     @Override
     public void migrate() throws Exception {
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  MIGRATING MOVIES");
-        System.out.println("=".repeat(60) + "\n");
-        
-        Connection conn = null;
+        MigrationContext context = null;
         
         try {
-            // Connect to MySQL
-            conn = mysqlConfig.getConnection();
-            System.out.println("✓ Connected to MySQL");
+            // Setup: establish connections, prepare collection
+            context = setupMigration();
+            logMigrationStart(context);
             
-            // Get MongoDB collection
-            MongoDatabase database = mongoConfig.getDatabase();
-            MongoCollection<Document> collection = database.getCollection(getCollectionName());
+            // Execute migration: process in batches
+            processBatchedMigration(context);
             
-            // Clear existing data (optional - comment out to append)
-            collection.drop();
-            System.out.println("✓ Cleared existing MongoDB collection");
-            
-            // Get total count
-            long totalMovies = getSourceCount();
-            long effectiveLimit = getEffectiveLimit(totalMovies);
-            
-            if (migrationLimit != null && migrationLimit < totalMovies) {
-                System.out.println("✓ Total movies available: " + totalMovies);
-                System.out.println("✓ Migration limit set to: " + effectiveLimit);
-                System.out.println("✓ Migrating first " + effectiveLimit + " movies\n");
-            } else {
-                System.out.println("✓ Total movies to migrate: " + totalMovies + "\n");
-            }
-            
-            // Migrate in batches
-            int offset = 0;
-            int processed = 0;
-            
-            while (offset < effectiveLimit) {
-                // Calculate how many records to fetch in this batch
-                int batchLimit = (int) Math.min(batchSize, effectiveLimit - offset);
-                
-                List<Document> batch = migrateMovieBatch(conn, offset, batchLimit);
-                
-                if (!batch.isEmpty()) {
-                    collection.insertMany(batch);
-                    processed += batch.size();
-                    logProgress(processed, effectiveLimit);
-                }
-                
-                offset += batchSize;
-            }
-            
-            System.out.println("\n✓ Migration complete!");
-            System.out.println("  Migrated: " + processed + " movies");
+            // Complete: log results
+            logMigrationComplete(context);
             
         } finally {
-            if (conn != null) {
-                mysqlConfig.closeConnection(conn);
-            }
+            closeMigrationContext(context);
         }
+    }
+    
+    /**
+     * Process movies in batches
+     * Separated for reusability and clarity
+     */
+    private void processBatchedMigration(MigrationContext context) throws Exception {
+        int offset = 0;
+        
+        while (offset < context.effectiveLimit) {
+            // Calculate batch limit
+            int batchLimit = calculateBatchLimit(offset, context.effectiveLimit);
+            
+            // Fetch and transform batch
+            List<Document> batch = fetchAndTransformMovieBatch(context, offset, batchLimit);
+            
+            // Insert batch
+            if (!batch.isEmpty()) {
+                performBatchInsert(context.mongoCollection, batch);
+                context.processedCount += batch.size();
+                logProgress(context.processedCount, context.effectiveLimit);
+            }
+            
+            offset += batchSize;
+        }
+    }
+    
+    /**
+     * Fetch and transform a single batch of movies
+     * Separated for reusability and testing
+     */
+    private List<Document> fetchAndTransformMovieBatch(MigrationContext context, int offset, int limit) 
+            throws Exception {
+        return migrateMovieBatch(context.sqlConnection, offset, limit);
     }
     
     @Override
@@ -137,21 +131,15 @@ public class MovieMigrator extends BaseMigrator {
     }
     
     /**
-     * Migrate a batch of movies with embedded stars, genres, and ratings
-     * Uses default batch size
-     */
-    @SuppressWarnings("unused")
-    private List<Document> migrateMovieBatch(Connection conn, int offset) throws Exception {
-        return migrateMovieBatch(conn, offset, batchSize);
-    }
-    
-    /**
      * Migrate a batch of movies with a specific batch size
+     * OPTIMIZED: Fetches all related data in batch to avoid N+1 queries
      */
     private List<Document> migrateMovieBatch(Connection conn, int offset, int limit) throws Exception {
         List<Document> movies = new ArrayList<>();
+        List<String> movieIds = new ArrayList<>();
+        Map<String, Document> movieMap = new LinkedHashMap<>();
         
-        // Query to get movies
+        // Step 1: Query to get movies
         String movieQuery = "SELECT id, title, year, director FROM movies LIMIT ? OFFSET ?";
         
         try (PreparedStatement stmt = conn.prepareStatement(movieQuery)) {
@@ -171,142 +159,157 @@ public class MovieMigrator extends BaseMigrator {
                     .append("_id", movieId)
                     .append("title", title)
                     .append("year", year)
-                    .append("director", director);
+                    .append("director", director)
+                    .append("stars", new ArrayList<Document>())
+                    .append("genres", new ArrayList<Document>());
                 
-                // Embed rating
-                Document rating = getMovieRating(conn, movieId);
-                if (rating != null) {
-                    movieDoc.append("rating", rating);
-                }
-                
-                // Embed stars
-                List<Document> stars = getMovieStars(conn, movieId);
-                movieDoc.append("stars", stars);
-                
-                // Embed genres
-                List<Document> genres = getMovieGenres(conn, movieId);
-                movieDoc.append("genres", genres);
-                
-                movies.add(movieDoc);
+                movieIds.add(movieId);
+                movieMap.put(movieId, movieDoc);
             }
         }
+        
+        // If no movies found, return empty list
+        if (movieIds.isEmpty()) {
+            return movies;
+        }
+        
+        // Step 2: Batch fetch ALL ratings for these movies (1 query instead of N)
+        fetchRatingsInBatch(conn, movieIds, movieMap);
+        
+        // Step 3: Batch fetch ALL stars for these movies (1 query instead of N)
+        fetchStarsInBatch(conn, movieIds, movieMap);
+        
+        // Step 4: Batch fetch ALL genres for these movies (1 query instead of N)
+        fetchGenresInBatch(conn, movieIds, movieMap);
+        
+        // Step 5: Convert map to list maintaining order
+        movies.addAll(movieMap.values());
         
         return movies;
     }
     
     /**
-     * Get rating for a movie
+     * Batch fetch ratings for multiple movies (1 query instead of N)
+     * OPTIMIZED: Eliminates N+1 query problem
      */
-    private Document getMovieRating(Connection conn, String movieId) throws Exception {
-        String query = "SELECT ratings, vote_count FROM ratings WHERE movie_id = ?";
+    private void fetchRatingsInBatch(Connection conn, List<String> movieIds, Map<String, Document> movieMap) throws Exception {
+        if (movieIds.isEmpty()) return;
+        
+        // Build IN clause with placeholders
+        String placeholders = String.join(",", movieIds.stream().map(id -> "?").toArray(String[]::new));
+        String query = "SELECT movie_id, ratings, vote_count FROM ratings WHERE movie_id IN (" + placeholders + ")";
         
         try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setString(1, movieId);
-            ResultSet rs = stmt.executeQuery();
-            
-            if (rs.next()) {
-                float score = rs.getFloat("ratings");
-                int voteCount = rs.getInt("vote_count");
-                
-                return new Document()
-                    .append("score", score)
-                    .append("voteCount", voteCount);
+            // Set parameters
+            for (int i = 0; i < movieIds.size(); i++) {
+                stmt.setString(i + 1, movieIds.get(i));
             }
-        }
-        
-        return null;
-    }
-    
-    /**
-     * Get all stars for a movie
-     */
-    private List<Document> getMovieStars(Connection conn, String movieId) throws Exception {
-        List<Document> stars = new ArrayList<>();
-        
-        String query = "SELECT s.id, s.name, s.birth_year " +
-                      "FROM stars s " +
-                      "INNER JOIN stars_in_movies sim ON s.id = sim.star_id " +
-                      "WHERE sim.movie_id = ?";
-        
-        try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setString(1, movieId);
+            
             ResultSet rs = stmt.executeQuery();
             
             while (rs.next()) {
-                Document star = new Document()
-                    .append("id", rs.getString("id"))
-                    .append("name", rs.getString("name"));
+                String movieId = rs.getString("movie_id");
+                float score = rs.getFloat("ratings");
+                int voteCount = rs.getInt("vote_count");
                 
+                Document rating = new Document()
+                    .append("score", score)
+                    .append("voteCount", voteCount);
+                
+                Document movieDoc = movieMap.get(movieId);
+                if (movieDoc != null) {
+                    movieDoc.append("rating", rating);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Batch fetch stars for multiple movies (1 query instead of N)
+     * OPTIMIZED: Eliminates N+1 query problem
+     */
+    @SuppressWarnings("unchecked")
+    private void fetchStarsInBatch(Connection conn, List<String> movieIds, Map<String, Document> movieMap) throws Exception {
+        if (movieIds.isEmpty()) return;
+        
+        // Build IN clause with placeholders
+        String placeholders = String.join(",", movieIds.stream().map(id -> "?").toArray(String[]::new));
+        String query = "SELECT sim.movie_id, s.id, s.name, s.birth_year " +
+                      "FROM stars s " +
+                      "INNER JOIN stars_in_movies sim ON s.id = sim.star_id " +
+                      "WHERE sim.movie_id IN (" + placeholders + ") " +
+                      "ORDER BY sim.movie_id, s.name";
+        
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            // Set parameters
+            for (int i = 0; i < movieIds.size(); i++) {
+                stmt.setString(i + 1, movieIds.get(i));
+            }
+            
+            ResultSet rs = stmt.executeQuery();
+            
+            while (rs.next()) {
+                String movieId = rs.getString("movie_id");
+                String starId = rs.getString("id");
+                String name = rs.getString("name");
                 int birthYear = rs.getInt("birth_year");
+                
+                Document star = new Document()
+                    .append("id", starId)
+                    .append("name", name);
+                
                 if (!rs.wasNull()) {
                     star.append("birthYear", birthYear);
                 }
                 
-                stars.add(star);
+                Document movieDoc = movieMap.get(movieId);
+                if (movieDoc != null) {
+                    List<Document> stars = (List<Document>) movieDoc.get("stars");
+                    stars.add(star);
+                }
             }
         }
-        
-        return stars;
     }
     
     /**
-     * Get all genres for a movie
+     * Batch fetch genres for multiple movies (1 query instead of N)
+     * OPTIMIZED: Eliminates N+1 query problem
      */
-    private List<Document> getMovieGenres(Connection conn, String movieId) throws Exception {
-        List<Document> genres = new ArrayList<>();
+    @SuppressWarnings("unchecked")
+    private void fetchGenresInBatch(Connection conn, List<String> movieIds, Map<String, Document> movieMap) throws Exception {
+        if (movieIds.isEmpty()) return;
         
-        String query = "SELECT g.id, g.name " +
+        // Build IN clause with placeholders
+        String placeholders = String.join(",", movieIds.stream().map(id -> "?").toArray(String[]::new));
+        String query = "SELECT gim.movie_id, g.id, g.name " +
                       "FROM genres g " +
                       "INNER JOIN genres_in_movies gim ON g.id = gim.genre_id " +
-                      "WHERE gim.movie_id = ?";
+                      "WHERE gim.movie_id IN (" + placeholders + ") " +
+                      "ORDER BY gim.movie_id, g.name";
         
         try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setString(1, movieId);
+            // Set parameters
+            for (int i = 0; i < movieIds.size(); i++) {
+                stmt.setString(i + 1, movieIds.get(i));
+            }
+            
             ResultSet rs = stmt.executeQuery();
             
             while (rs.next()) {
-                Document genre = new Document()
-                    .append("id", rs.getInt("id"))
-                    .append("name", rs.getString("name"));
+                String movieId = rs.getString("movie_id");
+                int genreId = rs.getInt("id");
+                String name = rs.getString("name");
                 
-                genres.add(genre);
+                Document genre = new Document()
+                    .append("id", genreId)
+                    .append("name", name);
+                
+                Document movieDoc = movieMap.get(movieId);
+                if (movieDoc != null) {
+                    List<Document> genres = (List<Document>) movieDoc.get("genres");
+                    genres.add(genre);
+                }
             }
-        }
-        
-        return genres;
-    }
-    
-    /**
-     * Main method to run movie migration
-     */
-    public static void main(String[] args) {
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  FABFLIX MOVIE MIGRATION");
-        System.out.println("=".repeat(60));
-        
-        try {
-            // Initialize configs
-            MySQLConnectionConfig mysqlConfig = new MySQLConnectionConfig();
-            MongoDBConnectionConfig mongoConfig = new MongoDBConnectionConfig();
-            
-            // Create migrator
-            MovieMigrator migrator = new MovieMigrator(mysqlConfig, mongoConfig);
-            
-            // Run migration
-            migrator.migrate();
-            
-            // Validate
-            migrator.validate();
-            
-            System.out.println("\n" + "=".repeat(60));
-            System.out.println("✅ Movie migration completed successfully!");
-            System.out.println("=".repeat(60) + "\n");
-            
-        } catch (Exception e) {
-            System.err.println("\n❌ Movie migration failed!");
-            System.err.println("Error: " + e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
         }
     }
 }

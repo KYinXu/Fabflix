@@ -25,53 +25,37 @@ public class GenreMigrator extends BaseMigrator {
     
     @Override
     public void migrate() throws Exception {
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  MIGRATING GENRES");
-        System.out.println("=".repeat(60) + "\n");
-        
-        Connection conn = null;
+        MigrationContext context = null;
         
         try {
-            // Connect to MySQL
-            conn = mysqlConfig.getConnection();
-            System.out.println("✓ Connected to MySQL");
+            // Setup: establish connections, prepare collection
+            context = setupMigration();
+            logMigrationStart(context);
             
-            // Get MongoDB collection
-            MongoDatabase database = mongoConfig.getDatabase();
-            MongoCollection<Document> collection = database.getCollection(getCollectionName());
+            // Execute migration: fetch and transform genres
+            List<Document> genres = fetchAndTransformGenres(context);
             
-            // Clear existing data
-            collection.drop();
-            System.out.println("✓ Cleared existing MongoDB collection");
-            
-            // Get total count
-            long totalGenres = getSourceCount();
-            long effectiveLimit = getEffectiveLimit(totalGenres);
-            
-            if (migrationLimit != null && migrationLimit < totalGenres) {
-                System.out.println("✓ Total genres available: " + totalGenres);
-                System.out.println("✓ Migration limit set to: " + effectiveLimit);
-                System.out.println("✓ Migrating first " + effectiveLimit + " genres\n");
-            } else {
-                System.out.println("✓ Total genres to migrate: " + totalGenres + "\n");
-            }
-            
-            // Migrate genres (typically small dataset, can do in one batch)
-            List<Document> genres = migrateGenreBatch(conn, 0, (int) effectiveLimit);
-            
+            // Insert: perform batch insert
             if (!genres.isEmpty()) {
-                collection.insertMany(genres);
-                logProgress(genres.size(), effectiveLimit);
+                performBatchInsert(context.mongoCollection, genres);
+                context.processedCount = genres.size();
+                logProgress(context.processedCount, context.effectiveLimit);
             }
             
-            System.out.println("\n✓ Migration complete!");
-            System.out.println("  Migrated: " + genres.size() + " genres");
+            // Complete: log results
+            logMigrationComplete(context);
             
         } finally {
-            if (conn != null) {
-                mysqlConfig.closeConnection(conn);
-            }
+            closeMigrationContext(context);
         }
+    }
+    
+    /**
+     * Fetch genres from MySQL and transform to MongoDB documents
+     * Separated for reusability and testing
+     */
+    private List<Document> fetchAndTransformGenres(MigrationContext context) throws Exception {
+        return migrateGenreBatch(context.sqlConnection, 0, (int) context.effectiveLimit);
     }
     
     @Override
@@ -154,39 +138,5 @@ public class GenreMigrator extends BaseMigrator {
         }
         
         return genres;
-    }
-    
-    /**
-     * Main method to run genre migration
-     */
-    public static void main(String[] args) {
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  FABFLIX GENRE MIGRATION");
-        System.out.println("=".repeat(60));
-        
-        try {
-            // Initialize configs
-            MySQLConnectionConfig mysqlConfig = new MySQLConnectionConfig();
-            MongoDBConnectionConfig mongoConfig = new MongoDBConnectionConfig();
-            
-            // Create migrator
-            GenreMigrator migrator = new GenreMigrator(mysqlConfig, mongoConfig);
-            
-            // Run migration
-            migrator.migrate();
-            
-            // Validate
-            migrator.validate();
-            
-            System.out.println("\n" + "=".repeat(60));
-            System.out.println("✅ Genre migration completed successfully!");
-            System.out.println("=".repeat(60) + "\n");
-            
-        } catch (Exception e) {
-            System.err.println("\n❌ Genre migration failed!");
-            System.err.println("Error: " + e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
-        }
     }
 }
