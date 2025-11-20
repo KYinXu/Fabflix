@@ -26,34 +26,21 @@ public class GenreMigrator extends BaseMigrator {
     @Override
     public void migrate() throws Exception {
         MigrationContext context = null;
-        
         try {
-            // Setup: establish connections, prepare collection
             context = setupMigration();
             logMigrationStart(context);
-            
-            // Execute migration: fetch and transform genres
             List<Document> genres = fetchAndTransformGenres(context);
-            
-            // Insert: perform batch insert
             if (!genres.isEmpty()) {
                 performBatchInsert(context.mongoCollection, genres);
                 context.processedCount = genres.size();
                 logProgress(context.processedCount, context.effectiveLimit);
             }
-            
-            // Complete: log results
             logMigrationComplete(context);
-            
         } finally {
             closeMigrationContext(context);
         }
     }
     
-    /**
-     * Fetch genres from MySQL and transform to MongoDB documents
-     * Separated for reusability and testing
-     */
     private List<Document> fetchAndTransformGenres(MigrationContext context) throws Exception {
         return migrateGenreBatch(context.sqlConnection, 0, (int) context.effectiveLimit);
     }
@@ -61,21 +48,16 @@ public class GenreMigrator extends BaseMigrator {
     @Override
     public boolean validate() throws Exception {
         System.out.println("\nValidating genre migration...");
-        
         long sourceCount = getSourceCount();
         long destCount = getDestinationCount();
-        
         System.out.println("  MySQL genres:   " + sourceCount);
         System.out.println("  MongoDB genres: " + destCount);
-        
         boolean valid = sourceCount == destCount;
-        
         if (valid) {
             System.out.println("✓ Validation passed: counts match");
         } else {
             System.out.println("✗ Validation failed: counts don't match");
         }
-        
         return valid;
     }
     
@@ -98,7 +80,7 @@ public class GenreMigrator extends BaseMigrator {
     }
     
     @Override
-    public long getDestinationCount() throws Exception {
+    public long getDestinationCount() {
         MongoDatabase database = mongoConfig.getDatabase();
         MongoCollection<Document> collection = database.getCollection(getCollectionName());
         return collection.countDocuments();
@@ -130,8 +112,7 @@ public class GenreMigrator extends BaseMigrator {
                 // Create genre document
                 Document genreDoc = new Document()
                     .append("_id", id)
-                    .append("name", name)
-                    .append("movieCount", 0); // Will be updated later if needed
+                    .append("name", name);
                 
                 genres.add(genreDoc);
             }

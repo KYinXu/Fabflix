@@ -26,34 +26,21 @@ public class EmployeeMigrator extends BaseMigrator {
     @Override
     public void migrate() throws Exception {
         MigrationContext context = null;
-        
         try {
-            // Setup: establish connections, prepare collection
             context = setupMigration();
             logMigrationStart(context);
-            
-            // Execute migration: fetch and transform employees
             List<Document> employees = fetchAndTransformEmployees(context);
-            
-            // Insert: perform batch insert
             if (!employees.isEmpty()) {
                 performBatchInsert(context.mongoCollection, employees);
                 context.processedCount = employees.size();
                 logProgress(context.processedCount, context.effectiveLimit);
             }
-            
-            // Complete: log results
             logMigrationComplete(context);
-            
         } finally {
             closeMigrationContext(context);
         }
     }
     
-    /**
-     * Fetch employees from MySQL and transform to MongoDB documents
-     * Separated for reusability and testing
-     */
     private List<Document> fetchAndTransformEmployees(MigrationContext context) throws Exception {
         return migrateEmployeeBatch(context.sqlConnection, 0, (int) context.effectiveLimit);
     }
@@ -61,21 +48,16 @@ public class EmployeeMigrator extends BaseMigrator {
     @Override
     public boolean validate() throws Exception {
         System.out.println("\nValidating employee migration...");
-        
         long sourceCount = getSourceCount();
         long destCount = getDestinationCount();
-        
         System.out.println("  MySQL employees:   " + sourceCount);
         System.out.println("  MongoDB employees: " + destCount);
-        
         boolean valid = sourceCount == destCount;
-        
         if (valid) {
             System.out.println("✓ Validation passed: counts match");
         } else {
             System.out.println("✗ Validation failed: counts don't match");
         }
-        
         return valid;
     }
     
@@ -98,7 +80,7 @@ public class EmployeeMigrator extends BaseMigrator {
     }
     
     @Override
-    public long getDestinationCount() throws Exception {
+    public long getDestinationCount() {
         MongoDatabase database = mongoConfig.getDatabase();
         MongoCollection<Document> collection = database.getCollection(getCollectionName());
         return collection.countDocuments();

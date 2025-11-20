@@ -36,15 +36,14 @@ public class MigrationOptimizer {
     }
     
     /**
-     * Optimize JDBC fetch size for large result sets
+     * Optimize JDBC connection for read-only operations
+     * Disables auto-commit for better performance during large data fetches
      * 
-     * @param connection JDBC connection
-     * @param fetchSize Fetch size to set
+     * @param connection JDBC connection to optimize
      */
-    public static void optimizeJdbcFetch(Connection connection, int fetchSize) {
+    public static void optimizeJdbcFetch(Connection connection) {
         try {
             connection.setAutoCommit(false); // Better performance for read-only operations
-            // Note: fetchSize is set per statement, not connection
         } catch (Exception e) {
             System.err.println("Could not optimize JDBC settings: " + e.getMessage());
         }

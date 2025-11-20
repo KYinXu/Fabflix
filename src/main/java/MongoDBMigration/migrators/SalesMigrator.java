@@ -26,52 +26,30 @@ public class SalesMigrator extends BaseMigrator {
     @Override
     public void migrate() throws Exception {
         MigrationContext context = null;
-        
         try {
-            // Setup: establish connections, prepare collection
             context = setupMigration();
             logMigrationStart(context);
-            
-            // Execute migration: process in batches
             processBatchedMigration(context);
-            
-            // Complete: log results
             logMigrationComplete(context);
-            
         } finally {
             closeMigrationContext(context);
         }
     }
     
-    /**
-     * Process sales in batches
-     * Separated for reusability and clarity
-     */
     private void processBatchedMigration(MigrationContext context) throws Exception {
         int offset = 0;
-        
         while (offset < context.effectiveLimit) {
-            // Calculate batch limit
             int batchLimit = calculateBatchLimit(offset, context.effectiveLimit);
-            
-            // Fetch and transform batch
             List<Document> batch = fetchAndTransformSaleBatch(context, offset, batchLimit);
-            
-            // Insert batch
             if (!batch.isEmpty()) {
                 performBatchInsert(context.mongoCollection, batch);
                 context.processedCount += batch.size();
                 logProgress(context.processedCount, context.effectiveLimit);
             }
-            
             offset += batchSize;
         }
     }
     
-    /**
-     * Fetch and transform a single batch of sales
-     * Separated for reusability and testing
-     */
     private List<Document> fetchAndTransformSaleBatch(MigrationContext context, int offset, int limit) 
             throws Exception {
         return migrateSaleBatch(context.sqlConnection, offset, limit);
@@ -80,21 +58,16 @@ public class SalesMigrator extends BaseMigrator {
     @Override
     public boolean validate() throws Exception {
         System.out.println("\nValidating sales migration...");
-        
         long sourceCount = getSourceCount();
         long destCount = getDestinationCount();
-        
         System.out.println("  MySQL sales:   " + sourceCount);
         System.out.println("  MongoDB sales: " + destCount);
-        
         boolean valid = sourceCount == destCount;
-        
         if (valid) {
             System.out.println("✓ Validation passed: counts match");
         } else {
             System.out.println("✗ Validation failed: counts don't match");
         }
-        
         return valid;
     }
     

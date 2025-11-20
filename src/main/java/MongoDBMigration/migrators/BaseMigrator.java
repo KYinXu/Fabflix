@@ -84,7 +84,7 @@ public abstract class BaseMigrator {
     /**
      * Get total count from MongoDB destination
      */
-    public long getDestinationCount() throws Exception {
+    public long getDestinationCount() {
         MongoDatabase database = mongoConfig.getDatabase();
         MongoCollection<Document> collection = database.getCollection(getCollectionName());
         return collection.countDocuments();
@@ -234,7 +234,7 @@ public abstract class BaseMigrator {
         System.out.println("✓ Connected to MySQL");
         
         // Optimize JDBC settings
-        MigrationOptimizer.optimizeJdbcFetch(context.sqlConnection, batchSize);
+        MigrationOptimizer.optimizeJdbcFetch(context.sqlConnection);
         
         // Get MongoDB collection
         MongoDatabase database = mongoConfig.getDatabase();

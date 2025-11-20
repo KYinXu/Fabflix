@@ -28,52 +28,30 @@ public class MovieMigrator extends BaseMigrator {
     @Override
     public void migrate() throws Exception {
         MigrationContext context = null;
-        
         try {
-            // Setup: establish connections, prepare collection
             context = setupMigration();
             logMigrationStart(context);
-            
-            // Execute migration: process in batches
             processBatchedMigration(context);
-            
-            // Complete: log results
             logMigrationComplete(context);
-            
         } finally {
             closeMigrationContext(context);
         }
     }
     
-    /**
-     * Process movies in batches
-     * Separated for reusability and clarity
-     */
     private void processBatchedMigration(MigrationContext context) throws Exception {
         int offset = 0;
-        
         while (offset < context.effectiveLimit) {
-            // Calculate batch limit
             int batchLimit = calculateBatchLimit(offset, context.effectiveLimit);
-            
-            // Fetch and transform batch
             List<Document> batch = fetchAndTransformMovieBatch(context, offset, batchLimit);
-            
-            // Insert batch
             if (!batch.isEmpty()) {
                 performBatchInsert(context.mongoCollection, batch);
                 context.processedCount += batch.size();
                 logProgress(context.processedCount, context.effectiveLimit);
             }
-            
             offset += batchSize;
         }
     }
     
-    /**
-     * Fetch and transform a single batch of movies
-     * Separated for reusability and testing
-     */
     private List<Document> fetchAndTransformMovieBatch(MigrationContext context, int offset, int limit) 
             throws Exception {
         return migrateMovieBatch(context.sqlConnection, offset, limit);
@@ -82,21 +60,16 @@ public class MovieMigrator extends BaseMigrator {
     @Override
     public boolean validate() throws Exception {
         System.out.println("\nValidating movie migration...");
-        
         long sourceCount = getSourceCount();
         long destCount = getDestinationCount();
-        
         System.out.println("  MySQL movies:   " + sourceCount);
         System.out.println("  MongoDB movies: " + destCount);
-        
         boolean valid = sourceCount == destCount;
-        
         if (valid) {
             System.out.println("✓ Validation passed: counts match");
         } else {
             System.out.println("✗ Validation failed: counts don't match");
         }
-        
         return valid;
     }
     
@@ -119,7 +92,7 @@ public class MovieMigrator extends BaseMigrator {
     }
     
     @Override
-    public long getDestinationCount() throws Exception {
+    public long getDestinationCount() {
         MongoDatabase database = mongoConfig.getDatabase();
         MongoCollection<Document> collection = database.getCollection(getCollectionName());
         return collection.countDocuments();
@@ -138,16 +111,11 @@ public class MovieMigrator extends BaseMigrator {
         List<Document> movies = new ArrayList<>();
         List<String> movieIds = new ArrayList<>();
         Map<String, Document> movieMap = new LinkedHashMap<>();
-        
-        // Step 1: Query to get movies
         String movieQuery = "SELECT id, title, year, director FROM movies LIMIT ? OFFSET ?";
-        
         try (PreparedStatement stmt = conn.prepareStatement(movieQuery)) {
             stmt.setInt(1, limit);
             stmt.setInt(2, offset);
-            
             ResultSet rs = stmt.executeQuery();
-            
             while (rs.next()) {
                 String movieId = rs.getString("id");
                 String title = rs.getString("title");
@@ -167,24 +135,13 @@ public class MovieMigrator extends BaseMigrator {
                 movieMap.put(movieId, movieDoc);
             }
         }
-        
-        // If no movies found, return empty list
         if (movieIds.isEmpty()) {
             return movies;
         }
-        
-        // Step 2: Batch fetch ALL ratings for these movies (1 query instead of N)
         fetchRatingsInBatch(conn, movieIds, movieMap);
-        
-        // Step 3: Batch fetch ALL stars for these movies (1 query instead of N)
         fetchStarsInBatch(conn, movieIds, movieMap);
-        
-        // Step 4: Batch fetch ALL genres for these movies (1 query instead of N)
         fetchGenresInBatch(conn, movieIds, movieMap);
-        
-        // Step 5: Convert map to list maintaining order
         movies.addAll(movieMap.values());
-        
         return movies;
     }
     
