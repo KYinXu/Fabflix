@@ -65,6 +65,6 @@ public class MySQLConnectionConfig {
         } catch (SQLException e) {
             System.err.println("MySQL connection failed: " + e.getMessage());
             throw new RuntimeException("Cannot connect to MySQL", e);
-        }
     }
+}
 }

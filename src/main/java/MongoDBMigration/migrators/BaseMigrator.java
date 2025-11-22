@@ -1,7 +1,7 @@
 package MongoDBMigration.migrators;
 
 import MongoDBMigration.config.MySQLConnectionConfig;
-import MongoDBMigration.config.MongoDBConnectionConfig;
+import config.MongoDBConnectionConfig;
 import MongoDBMigration.utils.MigrationOptimizer;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
