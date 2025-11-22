@@ -50,8 +50,7 @@ public class MigrationRunner {
                 "customers",
                 "sales",
                 "credit_cards",
-                "ratings",
-                "employees"
+                "ratings"
             };
             
             System.out.println("Table Counts:");
@@ -136,7 +135,6 @@ public class MigrationRunner {
             "movies",      // Second: main entities with genre references
             "stars",       // Third: stars (can be independent)
             "customers",   // Fourth: customers
-            "employees",   // Fifth: employees
             "sales"        // Last: transactional data with references
         };
         runPartialMigration(allCollections, null);
@@ -215,14 +213,6 @@ public class MigrationRunner {
                             customerMigrator.migrate();
                             break;
                             
-                        case "employees":
-                            EmployeeMigrator employeeMigrator = new EmployeeMigrator(mysqlConfig, mongoConfig);
-                            if (limit != null) {
-                                employeeMigrator.setMigrationLimit(limit);
-                            }
-                            employeeMigrator.migrate();
-                            break;
-                            
                         case "sales":
                             SalesMigrator salesMigrator = new SalesMigrator(mysqlConfig, mongoConfig);
                             if (limit != null) {
@@ -262,7 +252,7 @@ public class MigrationRunner {
      * Verify all migrated collections
      */
     public void verifyMigration() {
-        verifyMigration(new String[]{"movies", "stars", "genres", "customers", "employees", "sales"}, null);
+        verifyMigration(new String[]{"movies", "stars", "genres", "customers", "sales"}, null);
     }
     
     /**
@@ -323,9 +313,6 @@ public class MigrationRunner {
                             break;
                         case "customers":
                             migrator = new CustomerMigrator(mysqlConfig, mongoConfig);
-                            break;
-                        case "employees":
-                            migrator = new EmployeeMigrator(mysqlConfig, mongoConfig);
                             break;
                         case "sales":
                             migrator = new SalesMigrator(mysqlConfig, mongoConfig);
@@ -412,7 +399,7 @@ public class MigrationRunner {
      * Generate migration report for all collections
      */
     public void generateReport() {
-        generateReport(new String[]{"movies", "stars", "genres", "customers", "employees", "sales"}, null);
+        generateReport(new String[]{"movies", "stars", "genres", "customers", "sales"}, null);
     }
     
     /**
@@ -476,9 +463,6 @@ public class MigrationRunner {
                             break;
                         case "customers":
                             migrator = new CustomerMigrator(mysqlConfig, mongoConfig);
-                            break;
-                        case "employees":
-                            migrator = new EmployeeMigrator(mysqlConfig, mongoConfig);
                             break;
                         case "sales":
                             migrator = new SalesMigrator(mysqlConfig, mongoConfig);
@@ -557,9 +541,6 @@ public class MigrationRunner {
                                 break;
                             case "customers":
                                 m = new CustomerMigrator(mysqlConfig, mongoConfig);
-                                break;
-                            case "employees":
-                                m = new EmployeeMigrator(mysqlConfig, mongoConfig);
                                 break;
                             case "sales":
                                 m = new SalesMigrator(mysqlConfig, mongoConfig);
