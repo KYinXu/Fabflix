@@ -2,138 +2,125 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import config.MongoDBConnectionConfig;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import org.bson.Document;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
-import java.sql.*;
 import java.io.PrintWriter;
 
-/**
- * Endpoints for querying movie information for a detailed view
- */
 @WebServlet("/movie/*")
 public class MovieServlet extends HttpServlet {
 
-    protected void doGet (HttpServletRequest request, HttpServletResponse response) throws IOException, RuntimeException {
-        String GET_MOVIE_BY_ID = """
-                SELECT *
-                FROM movies
-                WHERE id = ?
-                """;
-        String GET_RATINGS_INFORMATION = """
-                SELECT ratings, vote_count
-                FROM ratings
-                WHERE movie_id = ?
-                """;
-        String GET_STARS_INFORMATION = """
-                SELECT s.*, 
-                       (SELECT COUNT(*) 
-                        FROM stars_in_movies sm2 
-                        WHERE sm2.star_id = s.id) as movie_count
-                FROM stars s
-                INNER JOIN stars_in_movies sm ON s.id = sm.star_id
-                WHERE sm.movie_id = ?
-                ORDER BY movie_count DESC, s.name ASC
-                """;
-        String GET_GENRES_INFORMATION = """
-                SELECT g.*
-                FROM genres g
-                    INNER JOIN genres_in_movies gm ON g.id = gm.genre_id
-                WHERE gm.movie_id = ?
-                ORDER BY g.name ASC
-                """;
+    private MongoDBConnectionConfig mongoConfig;
 
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver"); //Install mySQL driver
-            //ResponseUtils.setCommonHeaders(response);
-        } catch (ClassNotFoundException e) {
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database connection error");
-        }
+    @Override
+    public void init() {
+        mongoConfig = new MongoDBConnectionConfig();
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String pathInfo = request.getPathInfo();
         if (!isValidPath(pathInfo)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No movie ID provided");
             return;
         }
-        String movieId = pathInfo.substring(1); // removes the leading '/'
-        try (Connection conn = DriverManager.getConnection(
-                "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true",
-                Parameters.username,
-                Parameters.password)) {
-            JSONObject movie = new JSONObject();
-            try (PreparedStatement statement1 = conn.prepareStatement(GET_MOVIE_BY_ID)) {
-                statement1.setString(1, movieId);
-                try (ResultSet rs = statement1.executeQuery()) {
-                    ResultSetMetaData rsmd = rs.getMetaData(); // get col names
-                    if (rs.next()) {
-                        insertResult(rs, rsmd, movie);
-                    } else {
-                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "Movie not found");
-                    }
-                }
+
+        String movieId = pathInfo.substring(1);
+
+        try {
+            if (mongoConfig == null) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "MongoDB configuration not initialized");
+                return;
             }
-            try (PreparedStatement statement2 = conn.prepareStatement(GET_RATINGS_INFORMATION)) {
-                statement2.setString(1, movieId);
-                try (ResultSet rs = statement2.executeQuery()) {
-                    ResultSetMetaData rsmd = rs.getMetaData();
-                    if (rs.next()) {
-                        JSONObject ratings = new JSONObject();
-                        insertResult(rs, rsmd, ratings);
-                        movie.put("ratings", ratings);
-                    }
-                }
+
+            MongoDatabase database = mongoConfig.getDatabase();
+            MongoCollection<Document> collection = database.getCollection("movies");
+            
+            Document movieDoc = collection.find(new Document("_id", movieId)).first();
+            
+            if (movieDoc == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Movie not found");
+                return;
             }
-            try (PreparedStatement statement3 = conn.prepareStatement(GET_STARS_INFORMATION)) {
-                statement3.setString(1, movieId);
-                try (ResultSet rs = statement3.executeQuery()) {
-                    JSONArray stars = new JSONArray();
-                    ResultSetMetaData rsmd = rs.getMetaData();
-                    while (rs.next()) {
-                        JSONObject thisStar = new JSONObject();
-                        insertResult(rs, rsmd, thisStar);
-                        stars.put(thisStar);
-                    }
-                    movie.put("stars", stars);
-                }
-            }
-            try (PreparedStatement statement4 = conn.prepareStatement(GET_GENRES_INFORMATION)) {
-                statement4.setString(1, movieId);
-                try (ResultSet rs = statement4.executeQuery()) {
-                    JSONArray genres = new JSONArray();
-                    ResultSetMetaData rsmd = rs.getMetaData();
-                    while (rs.next()) {
-                        JSONObject thisGenre = new JSONObject();
-                        insertResult(rs, rsmd, thisGenre);
-                        genres.put(thisGenre);
-                    }
-                    movie.put("genres", genres);
-                }
-            }
-            // Write movie object to response
+
+            JSONObject movie = convertMovieToJSON(movieDoc);
+            
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             try (PrintWriter writer = response.getWriter()) {
                 writer.write(movie.toString());
             }
-        } catch (SQLException e) {
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error: " + e.getMessage());
-        } catch (IOException e) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid movie ID");
+        } catch (com.mongodb.MongoTimeoutException e) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "MongoDB connection timeout. Is MongoDB running?");
+        } catch (com.mongodb.MongoException e) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "MongoDB error: " + e.getMessage());
         } catch (Exception e) {
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unknown error: " + e.getMessage());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
         }
+    }
+
+    private JSONObject convertMovieToJSON(Document movieDoc) {
+        JSONObject movie = new JSONObject();
+        
+        movie.put("id", movieDoc.getString("_id"));
+        movie.put("title", movieDoc.getString("title"));
+        movie.put("year", movieDoc.getInteger("year"));
+        movie.put("director", movieDoc.getString("director"));
+
+        Document ratingDoc = movieDoc.get("rating", Document.class);
+        if (ratingDoc != null) {
+            JSONObject ratings = new JSONObject();
+            ratings.put("ratings", ratingDoc.getDouble("score"));
+            ratings.put("vote_count", ratingDoc.getInteger("voteCount"));
+            movie.put("ratings", ratings);
+        }
+
+        java.util.List<Document> starsList = movieDoc.getList("stars", Document.class);
+        if (starsList != null) {
+            JSONArray stars = new JSONArray();
+            for (Document starDoc : starsList) {
+                JSONObject star = new JSONObject();
+                star.put("id", starDoc.getString("id"));
+                star.put("name", starDoc.getString("name"));
+                if (starDoc.containsKey("birthYear")) {
+                    star.put("birthYear", starDoc.getInteger("birthYear"));
+                }
+                if (starDoc.containsKey("movieCount")) {
+                    star.put("movie_count", starDoc.getInteger("movieCount"));
+                }
+                stars.put(star);
+            }
+            movie.put("stars", stars);
+        }
+
+        java.util.List<Document> genresList = movieDoc.getList("genres", Document.class);
+        if (genresList != null) {
+            JSONArray genres = new JSONArray();
+            for (Document genreDoc : genresList) {
+                JSONObject genre = new JSONObject();
+                genre.put("id", genreDoc.getInteger("id"));
+                genre.put("name", genreDoc.getString("name"));
+                genres.put(genre);
+            }
+            movie.put("genres", genres);
+        }
+
+        return movie;
     }
 
     private static boolean isValidPath(String pathInfo) {
         return !(pathInfo == null || pathInfo.isEmpty() || pathInfo.equals("/"));
     }
 
-    protected void insertResult(ResultSet rs, ResultSetMetaData rsmd, JSONObject obj) throws SQLException {
-        for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-            String col = rsmd.getColumnName(i);
-            Object val = rs.getObject(i);
-            obj.put(col, val);
+    @Override
+    public void destroy() {
+        if (mongoConfig != null) {
+            mongoConfig.closeConnection();
         }
     }
-
 }
