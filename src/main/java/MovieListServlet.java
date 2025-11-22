@@ -35,9 +35,8 @@ public class MovieListServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        PrintWriter frontendOutput = response.getWriter();
 
-        try {
+        try (PrintWriter frontendOutput = response.getWriter()) {
             if (mongoConfig == null) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "MongoDB configuration not initialized");
                 return;
@@ -70,8 +69,6 @@ public class MovieListServlet extends HttpServlet {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "MongoDB error: " + e.getMessage());
         } catch (Exception e) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
-        } finally {
-            frontendOutput.close();
         }
     }
 
@@ -98,24 +95,12 @@ public class MovieListServlet extends HttpServlet {
     private void handleGenreFilter(JSONArray movies, MongoCollection<Document> collection, String genreIdParam, HttpServletRequest request) {
         try {
             int genreId = Integer.parseInt(genreIdParam);
-            String pageParam = request.getParameter("page");
-            int page = (pageParam != null && !pageParam.isEmpty()) ? Integer.parseInt(pageParam) : 0;
-            int pageSize = parsePageSize(request.getParameter("pageSize"));
-            int offset = page * pageSize;
 
             Bson filter = Filters.eq("genres.id", genreId);
             Bson sort = Sorts.descending("rating.score");
-            Bson projection = Projections.fields(
-                Projections.include("_id", "title", "year", "director", "rating", "stars", "genres")
-            );
+            Bson projection = createMovieProjection();
 
-            List<Document> movieDocs = collection.find(filter)
-                .projection(projection)
-                .sort(sort)
-                .skip(offset)
-                .limit(pageSize)
-                .into(new ArrayList<>());
-
+            List<Document> movieDocs = executeMovieQuery(collection, filter, sort, projection, request);
             populateMoviesFromDocs(movies, movieDocs);
         } catch (NumberFormatException e) {
             // Invalid genre ID, return empty result
@@ -133,11 +118,6 @@ public class MovieListServlet extends HttpServlet {
             titlePattern = letterParam + "%";
         }
 
-        String pageParam = request.getParameter("page");
-        int page = (pageParam != null && !pageParam.isEmpty()) ? Integer.parseInt(pageParam) : 0;
-        int pageSize = parsePageSize(request.getParameter("pageSize"));
-        int offset = page * pageSize;
-
         String sortCriteriaParam = request.getParameter("sortCriteria");
         String sortOrderParam = request.getParameter("sortOrder");
         String tieBreakerParam = request.getParameter("tieBreaker");
@@ -147,17 +127,9 @@ public class MovieListServlet extends HttpServlet {
 
         Bson filter = buildFilter(titlePattern, starPattern, directorPattern, year);
         Bson sort = buildSort(sortCriteria, sortOrder, tieBreakerParam);
-        Bson projection = Projections.fields(
-            Projections.include("_id", "title", "year", "director", "rating", "stars", "genres")
-        );
+        Bson projection = createMovieProjection();
 
-        List<Document> movieDocs = collection.find(filter)
-            .projection(projection)
-            .sort(sort)
-            .skip(offset)
-            .limit(pageSize)
-            .into(new ArrayList<>());
-
+        List<Document> movieDocs = executeMovieQuery(collection, filter, sort, projection, request);
         populateMoviesFromDocs(movies, movieDocs);
     }
 
@@ -187,7 +159,7 @@ public class MovieListServlet extends HttpServlet {
     }
 
     private Bson buildSort(String sortCriteria, String sortOrder, String tieBreaker) {
-        String validatedOrder = sortOrder.toUpperCase().equals("ASC") ? "ASC" : "DESC";
+        String validatedOrder = sortOrder.equalsIgnoreCase("ASC") ? "ASC" : "DESC";
 
         String mongoField = switch (sortCriteria) {
             case "r.ratings", "rating.score" -> "rating.score";
@@ -219,7 +191,7 @@ public class MovieListServlet extends HttpServlet {
             }
         }
 
-        return sortList.size() == 1 ? sortList.get(0) : Sorts.orderBy(sortList);
+        return sortList.size() == 1 ? sortList.getFirst() : Sorts.orderBy(sortList);
     }
 
     private void populateMoviesFromDocs(JSONArray movies, List<Document> movieDocs) {
@@ -342,6 +314,26 @@ public class MovieListServlet extends HttpServlet {
             return -1;
         }
         return Integer.parseInt(yearInput.trim());
+    }
+
+    private Bson createMovieProjection() {
+        return Projections.fields(
+            Projections.include("_id", "title", "year", "director", "rating", "stars", "genres")
+        );
+    }
+
+    private List<Document> executeMovieQuery(MongoCollection<Document> collection, Bson filter, Bson sort, Bson projection, HttpServletRequest request) {
+        String pageParam = request.getParameter("page");
+        int page = (pageParam != null && !pageParam.isEmpty()) ? Integer.parseInt(pageParam) : 0;
+        int pageSize = parsePageSize(request.getParameter("pageSize"));
+        int offset = page * pageSize;
+
+        return collection.find(filter)
+            .projection(projection)
+            .sort(sort)
+            .skip(offset)
+            .limit(pageSize)
+            .into(new ArrayList<>());
     }
 
     @Override
