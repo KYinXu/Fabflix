@@ -15,7 +15,6 @@ const Login: React.FC = () => {
             navigate("/");
         }
     }, [data, navigate]);
-
     const handleSubmit = async (event: React.FormEvent) => {
             event.preventDefault();
             if (!recaptcha) {

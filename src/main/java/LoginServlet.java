@@ -1,3 +1,6 @@
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import config.MongoDBConnectionConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -12,9 +15,18 @@ import java.io.*;
 import java.net.URL;
 import java.sql.*;
 import org.jasypt.util.password.StrongPasswordEncryptor;
+import org.bson.Document;
 
 @WebServlet(name = "LoginServlet", urlPatterns = {"/login"}) // Allows Tomcat to Interpret URL
 public class LoginServlet extends HttpServlet {
+
+    private MongoDBConnectionConfig mongoConfig;
+
+    @Override
+    public void init() {
+        mongoConfig = new MongoDBConnectionConfig();
+    }
+
     public static final String LOGIN_VERIFICATION_QUERY = """
         SELECT password FROM customers WHERE email = ?
         """;
@@ -58,7 +70,7 @@ public class LoginServlet extends HttpServlet {
 
         boolean recaptchaToken = recaptchaVerification(gRecaptchaResponse);
 
-        Connection databaseConnection = establishDatabaseConnection();
+        MongoDatabase databaseConnection = establishDatabaseConnection();
         boolean existenceFlag = false;
 
         if (!recaptchaToken) {
@@ -70,20 +82,18 @@ public class LoginServlet extends HttpServlet {
             reactOutput.close();
         }
         else {
-            try (PreparedStatement queryStatement = databaseConnection.prepareStatement(LOGIN_VERIFICATION_QUERY)) {
-                queryStatement.setString(1, email);
-                ResultSet queryResult = queryStatement.executeQuery();
+            try {
+                MongoCollection<Document> collection = databaseConnection.getCollection("customers");
+                Document customerDocument = collection.find(new Document("email", email)).first();
 
-                if (queryResult.next()) {
-                    String encryptedPassword = queryResult.getString("password");
+                if (customerDocument != null) {
+                    String encryptedPassword = customerDocument.getString("password");
                     StrongPasswordEncryptor passwordEncryptor = new StrongPasswordEncryptor();
-
                     existenceFlag = passwordEncryptor.checkPassword(password, encryptedPassword);
                 }
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-
             if (existenceFlag) {
                 HttpSession session = request.getSession(true);
                 session.setAttribute("email", email);
@@ -95,23 +105,13 @@ public class LoginServlet extends HttpServlet {
             reactOutput.write(jsonSuccessStatus.toString());
             reactOutput.flush();
             reactOutput.close();
-
-            try {
-                databaseConnection.close();
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
         }
     }
 
-    protected Connection establishDatabaseConnection(){
-        String loginUser = Parameters.username;
-        String loginPassword = Parameters.password;
-        String loginUrl = "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true";
-
+    protected MongoDatabase establishDatabaseConnection(){
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            return DriverManager.getConnection(loginUrl, loginUser, loginPassword);
+            MongoDatabase database = mongoConfig.getDatabase();
+            return database;
         }
         catch (Exception e){
             throw new RuntimeException(e);
@@ -145,6 +145,13 @@ public class LoginServlet extends HttpServlet {
         }
         catch (Exception e){
             throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void destroy() {
+        if (mongoConfig != null) {
+            mongoConfig.closeConnection();
         }
     }
 }
