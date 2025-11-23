@@ -27,10 +27,6 @@ public class LoginServlet extends HttpServlet {
         mongoConfig = new MongoDBConnectionConfig();
     }
 
-    public static final String LOGIN_VERIFICATION_QUERY = """
-        SELECT password FROM customers WHERE email = ?
-        """;
-
     public static final String SECRET_KEY ="6Le3eAIsAAAAAKigdJPFrRk4teMKT1k9bBntTiZR";
     public static final String SITE_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
 

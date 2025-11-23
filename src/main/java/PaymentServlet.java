@@ -1,36 +1,33 @@
+import com.mongodb.MongoException;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import config.MongoDBConnectionConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.bson.Document;
 import org.json.JSONObject;
 import utils.CartItem;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.io.*;
+
 
 @WebServlet(name = "PaymentServlet", urlPatterns = {"/payment"}) // Allows Tomcat to Interpret URL
 public class PaymentServlet extends HttpServlet {
-    public static final String PAYMENT_VERIFICATION_QUERY = """
-            SELECT EXISTS(
-                    SELECT 1
-                    FROM credit_cards
-                    WHERE id = ? AND first_name = ? AND last_name = ? AND expiration = ?
-            )
-            """;
+    private MongoDBConnectionConfig mongoConfig;
 
-    public static final String SALE_UPDATE_QUERY = """
-            INSERT INTO sales (customer_id, movie_id, sale_date)
-            VALUES (
-                (SELECT id FROM customers WHERE credit_card_id = ?),
-                 ?, 
-                 NOW()
-             )
-            """;
+    @Override
+    public void init() {
+        mongoConfig = new MongoDBConnectionConfig();
+    }
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -41,23 +38,23 @@ public class PaymentServlet extends HttpServlet {
         String first_name = jsonObject.getString("first_name");
         String last_name = jsonObject.getString("last_name");
         String expirationString = jsonObject.getString("expiration");
-        Date expiration = Date.valueOf(expirationString);
-
+        java.util.Date expiration = java.sql.Date.valueOf(expirationString);
 
         setMimeType(response);
 
-        Connection databaseConnection = establishDatabaseConnection();
+        MongoDatabase databaseConnection = establishDatabaseConnection();
         boolean validPaymentFlag = false;
 
 
-        try (PreparedStatement queryStatement = databaseConnection.prepareStatement(PAYMENT_VERIFICATION_QUERY)) {
-            queryStatement.setString(1, id);
-            queryStatement.setString(2, first_name);
-            queryStatement.setString(3, last_name);
-            queryStatement.setDate(4, expiration);
-            ResultSet queryResult = queryStatement.executeQuery();
-            if (queryResult.next()){
-                validPaymentFlag = queryResult.getBoolean(1);
+        try {
+            MongoCollection<Document> cardsCollection = databaseConnection.getCollection("credit_cards");
+            Document customerDocument = cardsCollection.find(new Document("id", id)
+                            .append("first_name", first_name)
+                            .append("last_name", last_name)
+                            .append("expiration", expiration)).first();
+
+            if (customerDocument != null) {
+                validPaymentFlag = true;
             }
         }
         catch (Exception e){
@@ -70,7 +67,7 @@ public class PaymentServlet extends HttpServlet {
             if (validPaymentFlag){
                 try {
                     updateDatabaseSale(databaseConnection, id, shoppingCart);
-                } catch (SQLException e) {
+                } catch (MongoException e) {
                     throw new RuntimeException(e);
                 }
             }
@@ -81,25 +78,26 @@ public class PaymentServlet extends HttpServlet {
         reactOutput.write(jsonSuccessStatus.toString());
         reactOutput.flush();
         reactOutput.close();
-
-        try {
-            databaseConnection.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
     }
 
-    protected void updateDatabaseSale(Connection databaseConnection, String id,
-                                      Map<String, CartItem> shoppingCart) throws SQLException {
-        try (PreparedStatement queryStatement = databaseConnection
-                .prepareStatement(SALE_UPDATE_QUERY)) {
+    protected void updateDatabaseSale(MongoDatabase databaseConnection, String id,
+                                      Map<String, CartItem> shoppingCart) throws MongoException {
+        try {
+            MongoCollection<Document> salesCollection = databaseConnection.getCollection("sales");
+            List<Document> saleDocs = new ArrayList<>();
             for (CartItem item : shoppingCart.values()) {
-                queryStatement.setString(1, id);
-                queryStatement.setString(2, item.getMovieId());
-                queryStatement.addBatch();
+                Document sale = new Document()
+                        .append("customer_id", id)
+                        .append("movie_id", item.getMovieId())
+                        .append("sale_date", new java.util.Date());  // Current timestamp
+
+                saleDocs.add(sale);
             }
-            queryStatement.executeBatch();
-        } catch (SQLException e) {
+
+            if (!saleDocs.isEmpty()) {
+                salesCollection.insertMany(saleDocs);
+            }
+        } catch (MongoException e) {
             throw new RuntimeException(e);
         }
     }
@@ -129,14 +127,10 @@ public class PaymentServlet extends HttpServlet {
         }
     }
 
-    protected Connection establishDatabaseConnection(){
-        String loginUser = Parameters.username;
-        String loginPassword = Parameters.password;
-        String loginUrl = "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true";
-
+    protected MongoDatabase establishDatabaseConnection(){
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            return DriverManager.getConnection(loginUrl, loginUser, loginPassword);
+            MongoDatabase database = mongoConfig.getDatabase();
+            return database;
         }
         catch (Exception e){
             throw new RuntimeException(e);
@@ -148,6 +142,12 @@ public class PaymentServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
     }
 
+    @Override
+    public void destroy() {
+        if (mongoConfig != null) {
+            mongoConfig.closeConnection();
+        }
+    }
 }
 
 

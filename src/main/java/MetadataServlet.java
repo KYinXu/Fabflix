@@ -1,5 +1,9 @@
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import config.MongoDBConnectionConfig;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
+import org.bson.Document;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.IOException;
@@ -8,53 +12,72 @@ import java.sql.*;
 
 @WebServlet(name = "MetadataServlet", urlPatterns = {"/metadata"})
 public class MetadataServlet extends HttpServlet {
+    private MongoDBConnectionConfig mongoConfig;
+
+    @Override
+    public void init(){
+        mongoConfig = new MongoDBConnectionConfig();
+    }
+
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
         JSONObject result = new JSONObject();
-        JSONArray tablesArray = new JSONArray();
+        JSONArray collectionsArray = new JSONArray();
 
-        try (Connection conn = establishDatabaseConnection()) {
-            DatabaseMetaData metaData = conn.getMetaData();
-            ResultSet tables = metaData.getTables(null, null, "%", new String[]{"TABLE"});
+        try {
+            MongoDatabase database = establishDatabaseConnection();
 
-            while (tables.next()) {
-                String tableName = tables.getString("TABLE_NAME");
-                JSONObject tableObj = new JSONObject();
-                tableObj.put("name", tableName);
+            for (String collectionName : database.listCollectionNames()) {
 
-                JSONArray columnsArray = new JSONArray();
-                ResultSet columns = metaData.getColumns(null, null, tableName, "%");
-                while (columns.next()) {
-                    JSONObject columnObj = new JSONObject();
-                    columnObj.put("name", columns.getString("COLUMN_NAME"));
-                    columnObj.put("type", columns.getString("TYPE_NAME"));
-                    columnsArray.put(columnObj);
+                JSONObject collectionObj = new JSONObject();
+                collectionObj.put("name", collectionName);
+
+                JSONArray fieldsArray = new JSONArray();
+
+                MongoCollection<Document> collection = database.getCollection(collectionName);
+                Document sample = collection.find().first();
+
+                if (sample != null) {
+                    for (String key : sample.keySet()) {
+                        JSONObject fieldObj = new JSONObject();
+                        fieldObj.put("name", key);
+                        fieldObj.put("type", sample.get(key) != null ? sample.get(key).getClass().getSimpleName() : "unknown");
+                        fieldsArray.put(fieldObj);
+                    }
                 }
-                columns.close();
 
-                tableObj.put("columns", columnsArray);
-                tablesArray.put(tableObj);
+                collectionObj.put("fields", fieldsArray);
+                collectionsArray.put(collectionObj);
             }
-            tables.close();
+
+            result.put("collections", collectionsArray);
+
         } catch (Exception e) {
             e.printStackTrace();
             result.put("error", e.getMessage());
         }
 
-        result.put("tables", tablesArray);
         PrintWriter out = response.getWriter();
         out.write(result.toString());
         out.close();
     }
 
-    private Connection establishDatabaseConnection() throws Exception {
-        String loginUser = Parameters.username;
-        String loginPassword = Parameters.password;
-        String loginUrl = "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname +
-                "?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true";
-        Class.forName("com.mysql.cj.jdbc.Driver");
-        return DriverManager.getConnection(loginUrl, loginUser, loginPassword);
+    protected MongoDatabase establishDatabaseConnection(){
+        try {
+            MongoDatabase database = mongoConfig.getDatabase();
+            return database;
+        }
+        catch (Exception e){
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void destroy() {
+        if (mongoConfig != null) {
+            mongoConfig.closeConnection();
+        }
     }
 }
