@@ -1,6 +1,7 @@
 import com.mongodb.MongoException;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
 import config.MongoDBConnectionConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -9,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.json.JSONObject;
 import utils.CartItem;
 import java.io.BufferedReader;
@@ -17,7 +19,6 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.io.*;
 
 
 @WebServlet(name = "PaymentServlet", urlPatterns = {"/payment"}) // Allows Tomcat to Interpret URL
@@ -44,17 +45,23 @@ public class PaymentServlet extends HttpServlet {
 
         MongoDatabase databaseConnection = establishDatabaseConnection();
         boolean validPaymentFlag = false;
-
+        Integer customerId = null;
 
         try {
-            MongoCollection<Document> cardsCollection = databaseConnection.getCollection("credit_cards");
-            Document customerDocument = cardsCollection.find(new Document("id", id)
-                            .append("first_name", first_name)
-                            .append("last_name", last_name)
-                            .append("expiration", expiration)).first();
+            MongoCollection<Document> customersCollection = databaseConnection.getCollection("customers");
+            
+            Bson filter = Filters.and(
+                Filters.eq("creditCard.id", id),
+                Filters.eq("creditCard.firstName", first_name),
+                Filters.eq("creditCard.lastName", last_name),
+                Filters.eq("creditCard.expiration", expiration)
+            );
+            
+            Document customerDocument = customersCollection.find(filter).first();
 
             if (customerDocument != null) {
                 validPaymentFlag = true;
+                customerId = customerDocument.getInteger("mysqlId");
             }
         }
         catch (Exception e){
@@ -64,9 +71,9 @@ public class PaymentServlet extends HttpServlet {
         HttpSession session = request.getSession(false);
         if (session != null) {
             Map<String, CartItem> shoppingCart = (Map<String, CartItem>) session.getAttribute("cart");
-            if (validPaymentFlag){
+            if (validPaymentFlag && customerId != null){
                 try {
-                    updateDatabaseSale(databaseConnection, id, shoppingCart);
+                    updateDatabaseSale(databaseConnection, customerId, shoppingCart);
                 } catch (MongoException e) {
                     throw new RuntimeException(e);
                 }
@@ -80,16 +87,16 @@ public class PaymentServlet extends HttpServlet {
         reactOutput.close();
     }
 
-    protected void updateDatabaseSale(MongoDatabase databaseConnection, String id,
+    protected void updateDatabaseSale(MongoDatabase databaseConnection, Integer customerId,
                                       Map<String, CartItem> shoppingCart) throws MongoException {
         try {
             MongoCollection<Document> salesCollection = databaseConnection.getCollection("sales");
             List<Document> saleDocs = new ArrayList<>();
             for (CartItem item : shoppingCart.values()) {
                 Document sale = new Document()
-                        .append("customer_id", id)
-                        .append("movie_id", item.getMovieId())
-                        .append("sale_date", new java.util.Date());  // Current timestamp
+                        .append("customerId", customerId)
+                        .append("movieId", item.getMovieId())
+                        .append("saleDate", new java.util.Date());
 
                 saleDocs.add(sale);
             }
