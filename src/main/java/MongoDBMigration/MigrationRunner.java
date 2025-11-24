@@ -137,7 +137,7 @@ public class MigrationRunner {
             "customers",   // Fourth: customers
             "sales"        // Last: transactional data with references
         };
-        runPartialMigration(allCollections, null);
+        runPartialMigration(allCollections, null, true);
     }
     
     /**
@@ -145,7 +145,7 @@ public class MigrationRunner {
      * @param collections Array of collection names to migrate (e.g., "movies", "stars", etc.)
      */
     public void runPartialMigration(String[] collections) {
-        runPartialMigration(collections, null);
+        runPartialMigration(collections, null, false);
     }
     
     /**
@@ -154,6 +154,16 @@ public class MigrationRunner {
      * @param limit Maximum number of records to migrate per collection (null for no limit)
      */
     public void runPartialMigration(String[] collections, Long limit) {
+        runPartialMigration(collections, limit, false);
+    }
+    
+    /**
+     * Run migration for specific collections with a record limit
+     * @param collections Array of collection names to migrate (e.g., "movies", "stars", etc.)
+     * @param limit Maximum number of records to migrate per collection (null for no limit)
+     * @param isFullMigration Whether this is a full migration (affects console output)
+     */
+    private void runPartialMigration(String[] collections, Long limit, boolean isFullMigration) {
         if (collections == null || collections.length == 0) {
             System.out.println("No collections specified for migration.");
             return;
@@ -163,7 +173,11 @@ public class MigrationRunner {
         migrationStartTime = System.currentTimeMillis();
         
         System.out.println("\n" + "=".repeat(60));
-        System.out.println("  PARTIAL MIGRATION");
+        if (isFullMigration) {
+            System.out.println("  FULL MIGRATION");
+        } else {
+            System.out.println("  PARTIAL MIGRATION");
+        }
         System.out.println("=".repeat(60) + "\n");
         System.out.println("Collections to migrate: " + String.join(", ", collections));
         if (limit != null) {
