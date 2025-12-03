@@ -50,7 +50,7 @@ const AutocompleteSearchBar: React.FC<AutocompleteSearchBarProps> = ({
                 <SearchBar value={value} onChange={onChange} placeholder={placeholder} focusColor={focusColor} />
             </form>
             {isOpen && (
-                <div className="absolute z-50 w-full mt-1 border-2 rounded-lg shadow-lg max-h-96 overflow-y-auto"
+                <div className="absolute z-50 w-full mt-1 border-2 rounded-lg shadow-lg"
                      style={{ borderColor: 'var(--theme-border-primary)', backgroundColor: 'var(--theme-bg-secondary)' }}>
                     {loading && <div className="px-4 py-2 text-center">Loading...</div>}
                     {!loading && suggestions.length === 0 && <div className="px-4 py-2 text-center">No results</div>}
