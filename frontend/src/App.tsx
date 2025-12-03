@@ -10,6 +10,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import DashboardLogin from "@/features/dashboard/pages/dashboardLogin";
 import Dashboard from "@/features/dashboard/pages/dashboard";
+import { MovieSearchProvider } from './contexts/MovieSearchContext';
 
 
 const PrivateRoutes = () => {
@@ -38,22 +39,24 @@ const PrivateRoutes = () => {
 
 function App() {
     return (
-        <BrowserRouter>
-            <div className="App">
-                <Routes>
-                    <Route element={<PrivateRoutes/>}>
-                        <Route path="/" element={<MovieList/>}/>
-                        <Route path="/movie/:id" element={<Movie/>}/>
-                        <Route path="/star/:id" element={<Star/>}/>
-                        <Route path="/cart" element={<ShoppingCart/>}/>
-                        <Route path="/payment" element={<Payment/>}/>
-                    </Route>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/dashboard" element={<Dashboard/>}/>
-                    <Route path="/dashboard-login" element={<DashboardLogin />} />
-                </Routes>
-            </div>
-        </BrowserRouter>
+        <MovieSearchProvider>
+            <BrowserRouter>
+                <div className="App">
+                    <Routes>
+                        <Route element={<PrivateRoutes/>}>
+                            <Route path="/" element={<MovieList/>}/>
+                            <Route path="/movie/:id" element={<Movie/>}/>
+                            <Route path="/star/:id" element={<Star/>}/>
+                            <Route path="/cart" element={<ShoppingCart/>}/>
+                            <Route path="/payment" element={<Payment/>}/>
+                        </Route>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/dashboard" element={<Dashboard/>}/>
+                        <Route path="/dashboard-login" element={<DashboardLogin />} />
+                    </Routes>
+                </div>
+            </BrowserRouter>
+        </MovieSearchProvider>
     );
 }
 

@@ -1,8 +1,24 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import CheckoutButton from './CheckoutButton';
+import AutocompleteSearchBar from '@/features/movie-list/components/AutocompleteSearchBar';
+import { useMovieSearch } from '@/contexts/MovieSearchContext';
 
 const Navbar: React.FC = () => {
+    const [searchValue, setSearchValue] = useState('');
+    const { searchFromNavbar } = useMovieSearch();
+    const location = useLocation();
+    
+    const handleNavbarSearch = (query: string) => {
+        // If we're on the movie list page, use context to trigger search without URL change
+        if (location.pathname === '/') {
+            searchFromNavbar(query);
+        } else {
+            // If we're on another page, navigate to movie list with search
+            window.location.href = `/?title=${encodeURIComponent(query)}&searchMode=token`;
+        }
+    };
+
     const handleLogout = async () => {
         try {
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/logout`, {
@@ -38,6 +54,17 @@ const Navbar: React.FC = () => {
                         >
                             Fabflix
                         </Link>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="flex-1 max-w-md mx-4">
+                        <AutocompleteSearchBar
+                            value={searchValue}
+                            onChange={setSearchValue}
+                            placeholder="Search movies..."
+                            focusColor="blue"
+                            onSearch={handleNavbarSearch}
+                        />
                     </div>
 
                     {/* Cart and Logout Buttons */}

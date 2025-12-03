@@ -11,7 +11,7 @@ interface useFetchReturn {
     pageSize: number;
     sortCriteria: string;
     sortOrder: string;
-    searchMovies: (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string, initialPage?: number) => Promise<void>;
+    searchMovies: (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string, initialPage?: number, searchMode?: 'simple' | 'token') => Promise<void>;
     browseMovies: (letter: string, initialPage?: number) => Promise<void>;
     browseByGenre: (genreId: number, initialPage?: number) => Promise<void>;
     goToNextPage: () => Promise<void>;
@@ -39,7 +39,8 @@ export const useFetchMovieList = () : useFetchReturn => {
         directorQuery: '',
         yearQuery: '',
         letter: '',
-        genreId: null
+        genreId: null,
+        searchMode: 'simple'
     });
 
     // Helper function to create QueryParams from individual parameters
@@ -49,14 +50,16 @@ export const useFetchMovieList = () : useFetchReturn => {
         directorQuery: string,
         yearQuery: string,
         letter: string,
-        genreId: number | null
+        genreId: number | null,
+        searchMode?: 'simple' | 'token'
     ): QueryParams => ({
         titleQuery,
         starQuery,
         directorQuery,
         yearQuery,
         letter,
-        genreId
+        genreId,
+        searchMode: searchMode || 'simple'
     });
 
     // Helper function to create FetchParams from individual parameters
@@ -104,6 +107,11 @@ export const useFetchMovieList = () : useFetchReturn => {
         }
         if (fetchParams.sortOrder !== 'DESC') params.append('sortOrder', fetchParams.sortOrder);
         
+        // Search mode parameter
+        if (fetchParams.searchMode && fetchParams.searchMode === 'token') {
+            params.append('searchMode', 'token');
+        }
+        
         return params;
     };
 
@@ -135,9 +143,9 @@ export const useFetchMovieList = () : useFetchReturn => {
     }
 
     // Search function for parent component
-    const searchMovies = useCallback(async (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string, initialPage: number = 0) => {
+    const searchMovies = useCallback(async (titleQuery: string, starQuery: string, directorQuery: string, yearQuery: string, initialPage: number = 0, searchMode: 'simple' | 'token' = 'simple') => {
         setCurrentPage(initialPage);
-        const queryParams = createQueryParams(titleQuery, starQuery, directorQuery, yearQuery, '', null);
+        const queryParams = createQueryParams(titleQuery, starQuery, directorQuery, yearQuery, '', null, searchMode);
         const fetchParams = createFetchParams(queryParams, initialPage, pageSize, sortCriteria, sortOrder);
         setLastQuery(queryParams);
         await fetchMovie(fetchParams);

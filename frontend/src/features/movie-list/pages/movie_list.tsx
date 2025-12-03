@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { useFetchMovieList } from "../hooks/useFetchMovieList";
 import { useFetchGenres } from "../hooks/useFetchGenres";
@@ -9,11 +9,13 @@ import SearchSection from '../components/SearchSection';
 import BrowseSection from '../components/BrowseSection';
 import SortControl from '../components/SortControl';
 import PaginationControls from '../components/PaginationControls';
+import { useMovieSearch } from '@/contexts/MovieSearchContext';
 
 const MovieList: React.FC = () => {
     const {data, loading, error, currentPage, hasNextPage, pageSize, sortCriteria, sortOrder, searchMovies, browseMovies, browseByGenre, goToNextPage, goToPreviousPage, setPageSize, setSortCriteria, setSortOrder} = useFetchMovieList(); // create state by calling hook
     const {data: genres} = useFetchGenres(); // fetch genres
     const {saveState, loadState} = useSessionState(); // session state management
+    const {setSearchFromNavbar} = useMovieSearch(); // context for navbar search
     const [searchParams] = useSearchParams();
     const location = useLocation();
     const [browseType, setBrowseType] = useState<'title' | 'genre'>('title');
@@ -92,6 +94,10 @@ const MovieList: React.FC = () => {
                 } else {
                     // No meaningful session state - handle URL parameters or load default
                     const genreIdParam = searchParams.get('genreId');
+                    const titleParam = searchParams.get('title');
+                    const searchModeParam = searchParams.get('searchMode');
+                    const searchMode = searchModeParam === 'token' ? 'token' : 'simple';
+                    
                     if (genreIdParam) {
                         const genreId = parseInt(genreIdParam);
                         if (!isNaN(genreId)) {
@@ -100,6 +106,20 @@ const MovieList: React.FC = () => {
                             setSelectedLetter('');
                             browseByGenre(genreId);
                         }
+                    } else if (titleParam) {
+                        // Handle search from navbar (token-based) or URL
+                        const newSearchValues = { 
+                            movieQuery: titleParam, 
+                            starQuery: '', 
+                            directorQuery: '', 
+                            yearQuery: '' 
+                        };
+                        setSearchValues(newSearchValues);
+                        setSelectedLetter('All');
+                        setSelectedGenreId(null);
+                        await searchMovies(titleParam, '', '', '', 0, searchMode);
+                        const stateToSave = createSearchState(getCurrentState(), newSearchValues);
+                        await saveState(stateToSave);
                     } else {
                         // No session state, no URL params - execute default query
                         browseMovies('All');
@@ -116,7 +136,8 @@ const MovieList: React.FC = () => {
     
     const handleSearch = async (movieQuery: string, starQuery: string, directorQuery: string, yearQuery: string) => {
         // Search movies by title, star, director, and year (empty strings show all movies)
-        searchMovies(movieQuery, starQuery, directorQuery, yearQuery);
+        // Main search section always uses simple mode
+        searchMovies(movieQuery, starQuery, directorQuery, yearQuery, 0, 'simple');
         setSelectedLetter('All');
         setSelectedGenreId(null);
         
@@ -127,6 +148,39 @@ const MovieList: React.FC = () => {
         const stateToSave = createSearchState(getCurrentState(), newSearchValues);
         await saveState(stateToSave);
     };
+
+    // Register navbar search handler (token-based search)
+    // This keeps navbar search independent from main search section
+    const handleNavbarSearch = useCallback(async (query: string) => {
+        // Don't update searchValues - keep main search section fields independent
+        setSelectedLetter('All');
+        setSelectedGenreId(null);
+        await searchMovies(query, '', '', '', 0, 'token');
+        // Use current state values for session save, but don't update searchValues
+        const currentState: CurrentState = {
+            browseType: 'title',
+            selectedLetter: 'All',
+            selectedGenreId: null,
+            searchValues, // Keep existing searchValues, don't overwrite
+            sortCriteria,
+            sortOrder,
+            pageSize,
+            currentPage: 0
+        };
+        // Create a temporary search state just for saving, but don't update component state
+        const tempSearchValues = { 
+            movieQuery: query, 
+            starQuery: '', 
+            directorQuery: '', 
+            yearQuery: '' 
+        };
+        const stateToSave = createSearchState(currentState, tempSearchValues);
+        await saveState(stateToSave);
+    }, [searchMovies, sortCriteria, sortOrder, pageSize, saveState, searchValues]);
+
+    useEffect(() => {
+        setSearchFromNavbar(handleNavbarSearch);
+    }, [setSearchFromNavbar, handleNavbarSearch]);
 
 
     const handleLetterChange = async (letter: string) => {

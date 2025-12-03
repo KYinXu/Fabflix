@@ -13,6 +13,7 @@ export interface QueryParams {
     yearQuery: string;
     letter: string;
     genreId: number | null;
+    searchMode?: 'simple' | 'token';
 }
 
 // Interface for complete fetch parameters

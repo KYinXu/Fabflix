@@ -18,6 +18,7 @@ import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import utils.SearchPatternUtils;
 
 @WebServlet(name = "MovieListServlet", urlPatterns = {"/", "/movies"})
 public class MovieListServlet extends HttpServlet {
@@ -108,15 +109,18 @@ public class MovieListServlet extends HttpServlet {
     }
 
     private void handleMovieList(JSONArray movies, MongoCollection<Document> collection, HttpServletRequest request) {
-        String titlePattern = createSearchPattern(request.getParameter("title"));
-        String starPattern = createSearchPattern(request.getParameter("star"));
-        String directorPattern = createSearchPattern(request.getParameter("director"));
+        String searchModeParam = request.getParameter("searchMode");
+        SearchPatternUtils.SearchMode searchMode = "token".equalsIgnoreCase(searchModeParam) 
+            ? SearchPatternUtils.SearchMode.TOKEN_BASED 
+            : SearchPatternUtils.SearchMode.SIMPLE;
+        
+        String titleParam = request.getParameter("title");
+        String starParam = request.getParameter("star");
+        String directorParam = request.getParameter("director");
         int year = createYearFilter(request.getParameter("year"));
 
         String letterParam = request.getParameter("letter");
-        if (letterParam != null && !letterParam.equals("All") && letterParam.matches("^[A-Z0-9]$")) {
-            titlePattern = letterParam + "%";
-        }
+        boolean useLetterFilter = letterParam != null && !letterParam.equals("All") && letterParam.matches("^[A-Z0-9]$");
 
         String sortCriteriaParam = request.getParameter("sortCriteria");
         String sortOrderParam = request.getParameter("sortOrder");
@@ -125,7 +129,7 @@ public class MovieListServlet extends HttpServlet {
         String sortCriteria = (sortCriteriaParam != null && !sortCriteriaParam.isEmpty()) ? sortCriteriaParam : "rating.score";
         String sortOrder = (sortOrderParam != null && !sortOrderParam.isEmpty()) ? sortOrderParam : "DESC";
 
-        Bson filter = buildFilter(titlePattern, starPattern, directorPattern, year);
+        Bson filter = buildFilter(titleParam, starParam, directorParam, year, searchMode, useLetterFilter, letterParam);
         Bson sort = buildSort(sortCriteria, sortOrder, tieBreakerParam);
         Bson projection = createMovieProjection();
 
@@ -133,21 +137,25 @@ public class MovieListServlet extends HttpServlet {
         populateMoviesFromDocs(movies, movieDocs);
     }
 
-    private Bson buildFilter(String titlePattern, String starPattern, String directorPattern, int year) {
+    private Bson buildFilter(String titleParam, String starParam, String directorParam, int year, 
+                             SearchPatternUtils.SearchMode searchMode, boolean useLetterFilter, String letterParam) {
         List<Bson> filters = new ArrayList<>();
 
-        if (titlePattern != null && !titlePattern.equals("%")) {
-            Pattern titleRegex = Pattern.compile(escapeRegex(titlePattern).replace("%", ".*"), Pattern.CASE_INSENSITIVE);
+        if (useLetterFilter) {
+            Pattern titleRegex = Pattern.compile("^" + Pattern.quote(letterParam) + ".*", Pattern.CASE_INSENSITIVE);
+            filters.add(Filters.regex("title", titleRegex));
+        } else if (titleParam != null && !titleParam.trim().isEmpty()) {
+            Pattern titleRegex = SearchPatternUtils.createSearchPattern(titleParam, searchMode);
             filters.add(Filters.regex("title", titleRegex));
         }
 
-        if (starPattern != null && !starPattern.equals("%")) {
-            Pattern starRegex = Pattern.compile(escapeRegex(starPattern).replace("%", ".*"), Pattern.CASE_INSENSITIVE);
+        if (starParam != null && !starParam.trim().isEmpty()) {
+            Pattern starRegex = SearchPatternUtils.createSearchPattern(starParam, searchMode);
             filters.add(Filters.elemMatch("stars", Filters.regex("name", starRegex)));
         }
 
-        if (directorPattern != null && !directorPattern.equals("%")) {
-            Pattern directorRegex = Pattern.compile(escapeRegex(directorPattern).replace("%", ".*"), Pattern.CASE_INSENSITIVE);
+        if (directorParam != null && !directorParam.trim().isEmpty()) {
+            Pattern directorRegex = SearchPatternUtils.createSearchPattern(directorParam, searchMode);
             filters.add(Filters.regex("director", directorRegex));
         }
 
@@ -269,22 +277,6 @@ public class MovieListServlet extends HttpServlet {
         }
     }
 
-    private String escapeRegex(String pattern) {
-        return pattern.replace("\\", "\\\\")
-                     .replace("^", "\\^")
-                     .replace("$", "\\$")
-                     .replace(".", "\\.")
-                     .replace("|", "\\|")
-                     .replace("?", "\\?")
-                     .replace("*", "\\*")
-                     .replace("+", "\\+")
-                     .replace("(", "\\(")
-                     .replace(")", "\\)")
-                     .replace("[", "\\[")
-                     .replace("]", "\\]")
-                     .replace("{", "\\{")
-                     .replace("}", "\\}");
-    }
 
     private int parsePageSize(String pageSizeParam) {
         if (pageSizeParam == null || pageSizeParam.trim().isEmpty()) {
@@ -303,11 +295,6 @@ public class MovieListServlet extends HttpServlet {
         return DEFAULT_MOVIES_PER_PAGE;
     }
 
-    private String createSearchPattern(String searchInput) {
-        return (searchInput != null && !searchInput.trim().isEmpty())
-                ? "%" + searchInput.trim() + "%"
-                : "%";
-    }
 
     private int createYearFilter(String yearInput) {
         if (yearInput == null || yearInput.trim().isEmpty()) {
