@@ -41,7 +41,7 @@ export const useAutocompleteMovieSearch = (query: string) => {
         
         const trimmedQuery = query.trim();
         
-        if (!trimmedQuery || trimmedQuery.length <= 3) {
+        if (!trimmedQuery || trimmedQuery.length < 3) {
             setSuggestions([]);
             setLoading(false);
             return;
