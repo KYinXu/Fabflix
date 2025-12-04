@@ -34,7 +34,7 @@ const setCachedResults = (query: string, results: AutocompleteMovie[]) => {
 export const useAutocompleteMovieSearch = (query: string) => {
     const [suggestions, setSuggestions] = useState<AutocompleteMovie[]>([]);
     const [loading, setLoading] = useState(false);
-    const timeoutRef = useRef<NodeJS.Timeout>();
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
