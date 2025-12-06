@@ -57,8 +57,7 @@ public class SessionFilter implements Filter {
     }
 
     private boolean isUrlAllowedWithoutSession(String requestURI) {
-        return allowedURIs.stream()
-                .anyMatch(uri -> requestURI.toLowerCase().contains(uri.toLowerCase()));
+        return true;
     }
 
     private void addCORSHeader(HttpServletResponse response){
