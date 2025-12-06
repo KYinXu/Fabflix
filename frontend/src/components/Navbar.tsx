@@ -106,28 +106,28 @@ const Navbar: React.FC = () => {
                     </div>
 
                     {/* Cart and Logout Buttons */}
-                    <div className="flex items-center space-x-4">
-                        <CheckoutButton />
-                        <button
-                            onClick={handleLogout}
-                            className="text-white px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                            style={{ 
-                                backgroundColor: 'var(--theme-error)',
-                                '--tw-ring-color': 'var(--theme-error)',
-                                '--tw-ring-offset-color': 'var(--theme-bg-secondary)'
-                            } as React.CSSProperties}
-                            onMouseEnter={(e) => {
-                                const target = e.target as HTMLElement;
-                                target.style.backgroundColor = '#dc2626';
-                            }}
-                            onMouseLeave={(e) => {
-                                const target = e.target as HTMLElement;
-                                target.style.backgroundColor = 'var(--theme-error)';
-                            }}
-                        >
-                            Logout
-                        </button>
-                    </div>
+                    {/*<div className="flex items-center space-x-4">*/}
+                    {/*    <CheckoutButton />*/}
+                    {/*    <button*/}
+                    {/*        onClick={handleLogout}*/}
+                    {/*        className="text-white px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"*/}
+                    {/*        style={{ */}
+                    {/*            backgroundColor: 'var(--theme-error)',*/}
+                    {/*            '--tw-ring-color': 'var(--theme-error)',*/}
+                    {/*            '--tw-ring-offset-color': 'var(--theme-bg-secondary)'*/}
+                    {/*        } as React.CSSProperties}*/}
+                    {/*        onMouseEnter={(e) => {*/}
+                    {/*            const target = e.target as HTMLElement;*/}
+                    {/*            target.style.backgroundColor = '#dc2626';*/}
+                    {/*        }}*/}
+                    {/*        onMouseLeave={(e) => {*/}
+                    {/*            const target = e.target as HTMLElement;*/}
+                    {/*            target.style.backgroundColor = 'var(--theme-error)';*/}
+                    {/*        }}*/}
+                    {/*    >*/}
+                    {/*        Logout*/}
+                    {/*    </button>*/}
+                    {/*</div>*/}
                 </div>
             </div>
         </nav>
