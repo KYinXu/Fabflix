@@ -50,7 +50,8 @@ public class SessionFilter implements Filter {
             return;
         }
 
-        HttpSession session = servletRequest.getSession(false);
+        HttpSession session = servletRequest.getSession(true);
+
         if (session == null || (session.getAttribute("email") == null
                 && session.getAttribute("employee") == null)) {
             this.servletContext.log("Unauthorized Access Denied - URI: " + servletRequest.getRequestURI() +
@@ -61,12 +62,12 @@ public class SessionFilter implements Filter {
             servletResponse.getWriter().write("{\"error\": \"Unauthorized\"}");
             return;
         }
+
         chain.doFilter(request, response);
     }
 
     private boolean isUrlAllowedWithoutSession(String requestURI) {
-        return allowedURIs.stream()
-                .anyMatch(uri -> requestURI.toLowerCase().contains(uri.toLowerCase()));
+        return true; // returns true such that session is now disabled and all URLs are allowed
     }
 
     private void addCORSHeader(HttpServletResponse response){

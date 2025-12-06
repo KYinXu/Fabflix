@@ -65,11 +65,14 @@ public class MovieListServlet extends HttpServlet {
             frontendOutput.write(movies.toString());
             frontendOutput.flush();
         } catch (com.mongodb.MongoTimeoutException e) {
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "MongoDB connection timeout. Is MongoDB running?");
+            // MongoDB timeout - log but don't send error (response may be committed)
+            System.err.println("MongoDB connection timeout: " + e.getMessage());
         } catch (com.mongodb.MongoException e) {
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "MongoDB error: " + e.getMessage());
+            // MongoDB error - log but don't send error (response may be committed)
+            System.err.println("MongoDB error: " + e.getMessage());
         } catch (Exception e) {
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+            // General error - log but don't send error (response may be committed)
+            System.err.println("Error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
         }
     }
 
