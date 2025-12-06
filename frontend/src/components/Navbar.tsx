@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import CheckoutButton from './CheckoutButton';
 import AutocompleteSearchBar from '@/features/movie-list/components/AutocompleteSearchBar';
 import { useMovieSearch } from '@/contexts/MovieSearchContext';
 
@@ -19,22 +18,22 @@ const Navbar: React.FC = () => {
         }
     };
 
-    const handleLogout = async () => {
-        try {
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/logout`, {
-                method: 'POST',
-                credentials: 'include',
-            });
-            
-            if (response.ok) {
-                window.location.href = '/login';
-            }
-        } catch (error) {
-            console.error('Logout failed:', error);
-            // Still redirect to login even if logout request fails
-            window.location.href = '/login';
-        }
-    };
+    // const handleLogout = async () => {
+    //     try {
+    //         const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/logout`, {
+    //             method: 'POST',
+    //             credentials: 'include',
+    //         });
+    //
+    //         if (response.ok) {
+    //             window.location.href = '/login';
+    //         }
+    //     } catch (error) {
+    //         console.error('Logout failed:', error);
+    //         // Still redirect to login even if logout request fails
+    //         window.location.href = '/login';
+    //     }
+    // };
 
     return (
         <nav className="shadow-lg border-b" style={{ backgroundColor: 'var(--theme-bg-secondary)', borderColor: 'var(--theme-border-primary)' }}>

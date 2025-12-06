@@ -12,6 +12,7 @@ function App() {
         <MovieSearchProvider>
             <BrowserRouter>
                 <Navbar />
+                <Outlet />
 
                 <div className="App">
                     <Routes>
