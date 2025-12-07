@@ -1,3 +1,4 @@
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -347,7 +348,18 @@ public class MovieListServlet extends HttpServlet {
     }
 
     private void writeJMeterTimingToFile(long elapsedTs, long elapsedTj){
-        try (FileWriter fw = new FileWriter("/tmp/timing_movielist_mongodb.txt", true);
+        String tmpDirPath = getServletContext().getRealPath("/tmp");
+        File tmpDir;
+        tmpDir = new File(tmpDirPath);
+        if (!tmpDir.exists()) {
+            tmpDir.mkdirs(); // create tmp folder if it doesn't exist
+        }
+
+        // 2. Create the log file inside tmp
+        File logFile = new File(tmpDir, "timing_movielist_mongodb.txt");
+
+        // 3. Write timing data
+        try (FileWriter fw = new FileWriter(logFile, true);
              PrintWriter pw = new PrintWriter(fw)) {
             pw.println(elapsedTs + "," + elapsedTj);
         } catch (IOException e) {
