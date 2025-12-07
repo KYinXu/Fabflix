@@ -1,3 +1,4 @@
+import java.io.FileWriter;
 import java.sql.*;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -71,6 +72,8 @@ public class MovieListServlet extends HttpServlet{
             WHERE gm.movie_id IN
             """;
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        long startTs = System.nanoTime();
+        long elapsedTj = 0;
 
         // MySQL Connection Information
         String loginUser = Parameters.username;
@@ -91,16 +94,25 @@ public class MovieListServlet extends HttpServlet{
         // Check if client wants genre list (early return pattern)
         String action = request.getParameter("action");
         if ("listGenres".equals(action)) {
+            long startTj = System.nanoTime();
             try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
                 handleGenreList(frontendOutput, connection);
+                long endTj = System.nanoTime();
+                elapsedTj = endTj - startTj;
             } catch (SQLException e) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error getting genre list");
             }
             // frontendOutput will be closed below with the rest of the method
+            long endTs = System.nanoTime();
+            long elapsedTs = endTs - startTs;
+            writeJMeterTimingToFile(elapsedTs, elapsedTj);
+
             frontendOutput.close();
             return;
         }
+
         // Connect to database via URL
+        long startTj = System.nanoTime();
         try (Connection connection = DriverManager.getConnection(loginUrl, loginUser, loginPassword)) {
             // Return movie list (existing behavior)
             JSONArray movies = new JSONArray();
@@ -159,6 +171,9 @@ public class MovieListServlet extends HttpServlet{
                     }
                 }
             }
+            long endTj = System.nanoTime();
+            elapsedTj = endTj - startTj;
+
             frontendOutput.write(movies.toString());
             frontendOutput.flush();
         }
@@ -168,7 +183,22 @@ public class MovieListServlet extends HttpServlet{
         catch (Exception e) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal server error");
         }
+        finally {
+            long endTs = System.nanoTime();
+            long elapsedTs = endTs - startTs;
+            writeJMeterTimingToFile(elapsedTs, elapsedTj);
+        }
+
         frontendOutput.close();
+    }
+
+    private void writeJMeterTimingToFile(long elapsedTs, long elapsedTj) {
+        try (FileWriter fw = new FileWriter("/tmp/timing_movielist_mysql.txt", true);
+             PrintWriter pw = new PrintWriter(fw)) {
+            pw.println(elapsedTs + "," + elapsedTj);
+        } catch (IOException e) {
+            System.err.println("Error writing timing data: " + e.getMessage());
+        }
     }
     
     private void handleGenreList(PrintWriter frontendOutput, Connection connection) throws SQLException {

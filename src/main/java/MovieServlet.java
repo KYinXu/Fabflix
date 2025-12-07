@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.*;
 import java.io.PrintWriter;
@@ -16,6 +17,9 @@ import java.io.PrintWriter;
 public class MovieServlet extends HttpServlet {
 
     protected void doGet (HttpServletRequest request, HttpServletResponse response) throws IOException, RuntimeException {
+        long startTs = System.nanoTime();
+        long elapsedTj = 0;
+
         String GET_MOVIE_BY_ID = """
                 SELECT *
                 FROM movies
@@ -56,6 +60,7 @@ public class MovieServlet extends HttpServlet {
             return;
         }
         String movieId = pathInfo.substring(1); // removes the leading '/'
+        long startTj = System.nanoTime();
         try (Connection conn = DriverManager.getConnection(
                 "jdbc:" + Parameters.dbtype + ":///" + Parameters.dbname + "?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true",
                 Parameters.username,
@@ -109,6 +114,9 @@ public class MovieServlet extends HttpServlet {
                     movie.put("genres", genres);
                 }
             }
+            long endTj = System.nanoTime();
+            elapsedTj = endTj - startTj;
+
             // Write movie object to response
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
@@ -121,6 +129,20 @@ public class MovieServlet extends HttpServlet {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid movie ID");
         } catch (Exception e) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unknown error: " + e.getMessage());
+        }
+        finally {
+            long endTs = System.nanoTime();
+            long elapsedTs = endTs - startTs;
+            writeJMeterTimingToFile(elapsedTs, elapsedTj);
+        }
+    }
+
+    private void writeJMeterTimingToFile(long elapsedTs, long elapsedTj) {
+        try (FileWriter fw = new FileWriter("/tmp/timing_singlemovie_mysql.txt", true);
+             PrintWriter pw = new PrintWriter(fw)) {
+            pw.println(elapsedTs + "," + elapsedTj);
+        } catch (IOException e) {
+            System.err.println("Error writing timing data: " + e.getMessage());
         }
     }
 
