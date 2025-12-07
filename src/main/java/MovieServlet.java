@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.*;
@@ -138,7 +139,18 @@ public class MovieServlet extends HttpServlet {
     }
 
     private void writeJMeterTimingToFile(long elapsedTs, long elapsedTj) {
-        try (FileWriter fw = new FileWriter("/tmp/timing_singlemovie_mysql.txt", true);
+        String tmpDirPath = getServletContext().getRealPath("/tmp");
+        File tmpDir;
+        tmpDir = new File(tmpDirPath);
+        if (!tmpDir.exists()) {
+            tmpDir.mkdirs(); // create tmp folder if it doesn't exist
+        }
+
+        // 2. Create the log file inside tmp
+        File logFile = new File(tmpDir, "timing_singlemovie_mysql.txt");
+
+        // 3. Write timing data
+        try (FileWriter fw = new FileWriter(logFile, true);
              PrintWriter pw = new PrintWriter(fw)) {
             pw.println(elapsedTs + "," + elapsedTj);
         } catch (IOException e) {
