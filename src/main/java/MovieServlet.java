@@ -9,6 +9,7 @@ import org.bson.Document;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 
@@ -24,6 +25,9 @@ public class MovieServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        long startTs = System.nanoTime(); // start times for JMeter
+        long elapsedTj = 0;
+
         String pathInfo = request.getPathInfo();
         if (!isValidPath(pathInfo)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No movie ID provided");
@@ -38,10 +42,15 @@ public class MovieServlet extends HttpServlet {
                 return;
             }
 
+            long startTj = System.nanoTime(); // JMeter Timing
+
             MongoDatabase database = mongoConfig.getDatabase();
             MongoCollection<Document> collection = database.getCollection("movies");
             
             Document movieDoc = collection.find(new Document("_id", movieId)).first();
+
+            long endTj = System.nanoTime(); // JMeter Timing
+            elapsedTj = endTj - startTj; // JMeter Timing
             
             if (movieDoc == null) {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "Movie not found");
@@ -61,6 +70,20 @@ public class MovieServlet extends HttpServlet {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "MongoDB error: " + e.getMessage());
         } catch (Exception e) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+        }
+        finally {
+            long endTs = System.nanoTime();
+            long elapsedTs = endTs - startTs;
+            writeJMeterTimingToFile(elapsedTs, elapsedTj);
+        }
+    }
+
+    private void writeJMeterTimingToFile(long elapsedTs, long elapsedTj){
+        try (FileWriter fw = new FileWriter("/tmp/timing_singlemovie_mongodb.txt", true);
+             PrintWriter pw = new PrintWriter(fw)) {
+            pw.println(elapsedTs + "," + elapsedTj);
+        } catch (IOException e) {
+            System.err.println("Error writing timing data: " + e.getMessage());
         }
     }
 

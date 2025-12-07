@@ -1,3 +1,4 @@
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -34,6 +35,9 @@ public class MovieListServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        long startTs = System.nanoTime(); // start times for JMeter
+        long elapsedTj = 0;
+
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
@@ -45,11 +49,12 @@ public class MovieListServlet extends HttpServlet {
 
             String action = request.getParameter("action");
             if ("listGenres".equals(action)) {
-                handleGenreList(frontendOutput);
+                handleGenreList(frontendOutput, startTs);
                 frontendOutput.close();
                 return;
             }
 
+            long startTj = System.nanoTime(); // start times for JMeter
             MongoDatabase database = mongoConfig.getDatabase();
             MongoCollection<Document> moviesCollection = database.getCollection("movies");
 
@@ -61,7 +66,8 @@ public class MovieListServlet extends HttpServlet {
             } else {
                 handleMovieList(movies, moviesCollection, request);
             }
-
+            long endTj = System.nanoTime(); // start times for JMeter
+            elapsedTj = endTj - startTj;
             frontendOutput.write(movies.toString());
             frontendOutput.flush();
         } catch (com.mongodb.MongoTimeoutException e) {
@@ -74,10 +80,17 @@ public class MovieListServlet extends HttpServlet {
             // General error - log but don't send error (response may be committed)
             System.err.println("Error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
         }
+        finally {
+            long endTs = System.nanoTime();
+            long elapsedTs = endTs - startTs;
+            writeJMeterTimingToFile(elapsedTs, elapsedTj);
+        }
     }
 
-    private void handleGenreList(PrintWriter frontendOutput) {
+    private void handleGenreList(PrintWriter frontendOutput, long startTs) {
+
         try {
+            long startTj = System.nanoTime(); // start times for JMeter
             MongoDatabase database = mongoConfig.getDatabase();
             MongoCollection<Document> genresCollection = database.getCollection("genres");
 
@@ -89,6 +102,13 @@ public class MovieListServlet extends HttpServlet {
                 genres.put(genre);
             }
 
+            long endTj = System.nanoTime(); // start times for JMeter
+            long elapsedTj = endTj - startTj;
+
+            long endTs = System.nanoTime();
+            long elapsedTs = endTs - startTs;
+
+            writeJMeterTimingToFile(elapsedTs, elapsedTj);
             frontendOutput.write(genres.toString());
             frontendOutput.flush();
         } catch (Exception e) {
@@ -324,6 +344,15 @@ public class MovieListServlet extends HttpServlet {
             .skip(offset)
             .limit(pageSize)
             .into(new ArrayList<>());
+    }
+
+    private void writeJMeterTimingToFile(long elapsedTs, long elapsedTj){
+        try (FileWriter fw = new FileWriter("/tmp/timing_movielist_mongodb.txt", true);
+             PrintWriter pw = new PrintWriter(fw)) {
+            pw.println(elapsedTs + "," + elapsedTj);
+        } catch (IOException e) {
+            System.err.println("Error writing timing data: " + e.getMessage());
+        }
     }
 
     @Override
